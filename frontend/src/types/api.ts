@@ -72,3 +72,108 @@ export type RoofDetectionResult = {
   estimated_azimuth_deg: number | null;
   estimated_azimuth_source: string | null;
 };
+
+// ── /api/energy/pvlib — backend/app/schemas/energy.py ───────────────────
+
+export type EnergyPvlibRequest = {
+  location: Location;
+  system_kw: number;
+  tilt_deg?: number;
+  azimuth_deg?: number;
+  inverter_efficiency?: number;
+  system_losses_fraction?: number;
+};
+
+export type EnergyPvlibResult = {
+  annual_kwh: number;
+  /** 12 calendar-month AC totals, January..December (kWh). */
+  monthly_kwh: number[];
+  specific_yield_kwh_per_kwp: number;
+  capacity_factor: number;
+  performance_ratio: number;
+  poa_annual_kwh_per_m2: number;
+  mean_cell_temp_c: number;
+  system_kw: number;
+  tilt_deg: number;
+  azimuth_deg: number;
+  inverter_efficiency: number;
+  system_losses_fraction: number;
+};
+
+// ── /api/tariff/savings — backend/app/schemas/tariff.py ─────────────────
+
+export type MonthlyBillBreakdown = {
+  month_index: number;
+  consumption_kwh: number;
+  bill_egp: number;
+  per_tier_kwh: number[];
+  per_tier_egp: number[];
+  marginal_tariff_egp_per_kwh: number;
+};
+
+export type TariffSavingsRequest = {
+  monthly_consumption_kwh: number[];
+  monthly_generation_kwh: number[];
+  export_credit_egp_per_kwh?: number;
+};
+
+export type TariffSavingsResult = {
+  bill_before_egp: number;
+  bill_after_egp: number;
+  annual_savings_egp: number;
+  self_consumed_kwh: number;
+  exported_kwh: number;
+  export_credit_egp: number;
+  average_savings_egp_per_kwh: number;
+  monthly_bill_before: MonthlyBillBreakdown[];
+  monthly_bill_after: MonthlyBillBreakdown[];
+};
+
+// ── /api/monte-carlo/run — backend/app/schemas/monte_carlo.py ───────────
+
+export type MonteCarloPercentiles = {
+  mean: number;
+  std: number;
+  p05: number;
+  p10: number;
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
+  p95: number;
+  minimum: number;
+  maximum: number;
+};
+
+export type HistogramBins = {
+  bin_edges: number[];
+  counts: number[];
+};
+
+export type MonteCarloRequest = {
+  system_kw: number;
+  annual_kwh: number;
+  tariff_egp_per_kwh: number;
+  analysis_period_years?: number;
+  discount_rate?: number;
+  n_simulations?: number;
+  random_seed?: number;
+};
+
+export type MonteCarloResult = {
+  n_simulations: number;
+  payback_years: MonteCarloPercentiles;
+  npv_egp: MonteCarloPercentiles;
+  lcoe_egp_per_kwh: MonteCarloPercentiles;
+  lifetime_savings_egp: MonteCarloPercentiles;
+  payback_probability: number;
+  positive_npv_probability: number;
+  payback_histogram: HistogramBins;
+  npv_histogram: HistogramBins;
+  system_kw: number;
+  annual_kwh: number;
+  tariff_egp_per_kwh: number;
+  analysis_period_years: number;
+  discount_rate: number;
+  random_seed: number | null;
+};
