@@ -2,3 +2,23 @@
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+
+[tool.coverage.run]
+# Covered by the test suite. We intentionally exclude tests/ themselves
+# and the entry point uvicorn import (covered by the FastAPI test client).
+source = ["app"]
+omit = [
+    "app/__init__.py",
+]
+
+[tool.coverage.report]
+# Fail-fast threshold for week-1 backend core. Tighter than the actual
+# 94 % to leave a small headroom for refactoring; tightened in Week 3.
+fail_under = 90
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
