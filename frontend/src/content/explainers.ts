@@ -36,6 +36,31 @@ export type Explainer = {
 };
 
 export const explainers: Record<string, Explainer> = {
+  'roof-detection': {
+    id: 'roof-detection',
+    title: 'How does the AI detect the roof?',
+    plainEnglish: [
+      "When you type an address we ask OpenStreetMap — a free, community-maintained map of the world — to translate it into a latitude and longitude. The pin you see on the map is that point.",
+      "Once we know the point, we look up every nearby building outline that the OpenStreetMap community has already drawn around real rooftops, pick the one most likely to be yours, and draw it back on top of the map so you can confirm it before we run any numbers.",
+      "If the outline does not match your roof you can click the map to drop the pin somewhere else, or override the area on the next step — the system never guesses without giving you a way to correct it.",
+    ],
+    math: [
+      'address  ──Nominatim──▶  (latitude, longitude)',
+      '(latitude, longitude)  ──Overpass──▶  nearby OSM building polygons',
+      'primary_roof = polygon containing the pin (else nearest centroid)',
+    ],
+    variables: [
+      { label: 'Geocoder', value: 'OpenStreetMap Nominatim' },
+      { label: 'Footprint source', value: 'OpenStreetMap Overpass API' },
+      { label: 'Default search radius (Egypt-tuned)', value: '50 m' },
+      { label: 'Country bias', value: 'Egypt (configurable)' },
+    ],
+    sources: [
+      { label: 'OpenStreetMap Nominatim Usage Policy', href: 'https://operations.osmfoundation.org/policies/nominatim/' },
+      { label: 'OpenStreetMap Overpass API', href: 'https://wiki.openstreetmap.org/wiki/Overpass_API' },
+      { label: 'Methodology — Roof detection (research/methodology.md)' },
+    ],
+  },
   'system-size': {
     id: 'system-size',
     title: 'How is the panel count calculated?',
