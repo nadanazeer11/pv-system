@@ -178,15 +178,18 @@ Treats uncertain inputs (panel degradation, tariff inflation, weather variabilit
 
 ---
 
-## 🤖 Daily Agent Workflow (after Day 1)
+## 🤖 Daily Agent Workflow
 
-Each morning a scheduled agent:
+A scheduled agent runs **every 8 hours**. Each run:
 1. Picks the next item from this PLAN.
 2. Opens the corresponding feature branch.
 3. Implements the deliverable + commits with a dated, descriptive message.
-4. Opens a PR for your review.
+4. **Writes a "professor brief" to `outputs/NN-<slug>.md`** — plain-English explanation of what was built and why. This is the day-by-day narrative you can read without diving into code.
+5. Opens a PR for your review.
 
-You: review → comment / merge. ~10–15 min/day touch time.
+You: review → comment / merge. ~10–15 min per agent run.
+
+**The `outputs/` folder is your source of truth for understanding the project's progress.** Each file maps 1-1 to an agent run.
 
 ---
 
