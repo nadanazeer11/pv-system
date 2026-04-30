@@ -24,7 +24,16 @@ API docs available at: `http://localhost:8000/docs`
 
 ### Frontend
 
-*(Scaffolded on Day 10 — see PLAN.md.)*
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+App runs at: `http://localhost:5173` (expects the backend on
+`http://localhost:8000`; override with `VITE_API_BASE_URL`). See
+[`frontend/README.md`](./frontend/README.md) for the full Day-12
+scaffold notes.
 
 ---
 
