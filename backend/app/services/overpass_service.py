@@ -136,6 +136,14 @@ def parse_overpass_response(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return buildings
 
 
+# Overpass's fair-use policy asks every consumer to identify itself with
+# a meaningful User-Agent; in practice ``overpass-api.de`` returns HTTP
+# 406 to httpx's default ``python-httpx/X.Y`` UA, so this is also the
+# concrete fix for that error mode (verified empirically: any non-default
+# UA gets HTTP 200 for the same request).
+_USER_AGENT = "pv-solar-estimator/0.1 (thesis; https://github.com/nadanazeer11/pv-solar-estimator)"
+
+
 async def fetch_buildings(
     latitude: float,
     longitude: float,
@@ -165,7 +173,10 @@ async def fetch_buildings(
             response = await client.post(
                 settings.overpass_url,
                 data={"data": query},
-                headers={"Accept": "application/json"},
+                headers={
+                    "Accept": "application/json",
+                    "User-Agent": _USER_AGENT,
+                },
             )
     except httpx.HTTPError as exc:
         raise OverpassError(f"Overpass transport error: {exc}") from exc
