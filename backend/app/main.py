@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import health, sizing, weather
+from app.routers import energy, health, sizing, weather
 
 app = FastAPI(
     title="PV Rooftop Solar Estimator",
@@ -21,6 +21,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(weather.router)
 app.include_router(sizing.router)
+app.include_router(energy.router)
 
 
 @app.get("/")
