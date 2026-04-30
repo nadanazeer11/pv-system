@@ -91,5 +91,31 @@ class Settings(BaseSettings):
     # future reform update only changes config, not the service code.
     egypt_residential_tariff_tiers: list[tuple[float, float]] = EGYPT_RESIDENTIAL_TARIFF_TIERS
 
+    # Monte Carlo (Day 9, Contribution C) ─ default ensemble size and
+    # default distribution shapes for each uncertain parameter. The
+    # service applies these only when the request omits an override, so
+    # tests can collapse any distribution to a deterministic constant.
+    monte_carlo_default_n_simulations: int = 1000
+    # NREL median module degradation is ~0.5 %/yr; bounds 0.2–1.0 %/yr
+    # span the published warranty range for mono-Si under guarantee.
+    monte_carlo_degradation_triangular: tuple[float, float, float] = (0.002, 0.005, 0.010)
+    # EgyptERA decade trend: 8 % ± 3 %. Clipped at zero so a left-tail
+    # draw cannot represent a tariff *cut* that the policy regime makes
+    # implausible at the analysis horizon.
+    monte_carlo_tariff_inflation_normal: tuple[float, float] = (0.08, 0.03)
+    # IRENA residential rooftop O&M benchmark: 0.5–2.0 %/yr of capex.
+    monte_carlo_om_fraction_triangular: tuple[float, float, float] = (0.005, 0.010, 0.020)
+    # Egyptian market 2024 installer-quote spread; mode at the PLAN.md
+    # central value of 35 000 EGP/kW.
+    monte_carlo_cost_per_kw_triangular: tuple[float, float, float] = (30000.0, 35000.0, 45000.0)
+    # Per-year yield multiplier for weather + soiling. Egyptian PV field
+    # studies cluster within ±5 % of TMY-modelled output.
+    monte_carlo_yield_factor_normal: tuple[float, float] = (1.0, 0.05)
+    monte_carlo_yield_factor_clip: tuple[float, float] = (0.5, 1.5)
+    # Inverter replacement event: most installers warranty 10–12 years;
+    # 15 years is the upper bound of typical service life.
+    monte_carlo_inverter_year_triangular: tuple[float, float, float] = (10.0, 12.0, 15.0)
+    monte_carlo_inverter_cost_fraction_triangular: tuple[float, float, float] = (0.07, 0.10, 0.15)
+
 
 settings = Settings()
