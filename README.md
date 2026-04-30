@@ -50,6 +50,12 @@ pv-solar-estimator/
 
 ---
 
+## Daily Implementation Agent
+
+A scheduled remote agent runs every 8 hours, picks up the next undone day from `PLAN.md`, and opens a pull request for review. See [`docs/agent-setup.md`](./docs/agent-setup.md) for the full configuration, prompt, and rationale.
+
+---
+
 ## Academic Contributions
 
 1. **Dual energy model** — `pvlib` baseline cross-validated against a manual physics model.
