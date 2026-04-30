@@ -51,7 +51,7 @@ from shapely.geometry import Point, Polygon
 from app.config import settings
 from app.schemas.inputs import Location
 from app.schemas.roof import RoofDetectionResult, RoofPolygon
-from app.services import gmaps_static, overpass_service
+from app.services import gmaps_static, overpass_service, roof_orientation, roof_segmentation
 
 
 class RoofDetectionError(Exception):
@@ -285,4 +285,146 @@ async def detect_roof(
         meters_per_pixel=mpp,
         detection_source="osm-overpass",
         notes=notes,
+    )
+
+
+# ────────────────────────────────────────────────────────────────────
+# Day 11 — full analysis (detect + CV refinement + tilt/azimuth)
+# ────────────────────────────────────────────────────────────────────
+async def _try_fetch_satellite_tile(
+    centre: Location,
+) -> tuple[bytes | None, dict[str, float | int] | None, list[str]]:
+    """Fetch the satellite-tile bytes for the CV pass.
+
+    Returns ``(image_bytes, tile_metadata, notes)``. A failure to fetch
+    the tile is *never fatal* — it downgrades the analysis from
+    "image-aware" to "OSM-only" and is reported via the notes list.
+    """
+    notes: list[str] = []
+    try:
+        image_bytes = await gmaps_static.fetch_static_map(
+            centre.latitude, centre.longitude
+        )
+    except gmaps_static.GoogleMapsError as exc:
+        notes.append(
+            f"Skipping CV refinement: satellite tile fetch failed ({exc})."
+        )
+        return None, None, notes
+    metadata = gmaps_static.describe_tile(centre.latitude)
+    return image_bytes, metadata, notes
+
+
+def _apply_cv_refinement(
+    detection: RoofDetectionResult,
+    *,
+    image_bytes: bytes | None,
+    tile_metadata: dict[str, float | int] | None,
+) -> RoofDetectionResult:
+    """Layer Day-11 CV fields onto a Day-10 detection result.
+
+    Always returns a valid :class:`RoofDetectionResult`. When there is
+    no primary roof to refine, the result is the input unchanged
+    (with a note).
+    """
+    primary = detection.primary_roof
+    notes = list(detection.notes)
+
+    if primary is None:
+        notes.append(
+            "Skipping CV refinement: no primary roof polygon was detected."
+        )
+        return detection.model_copy(update={"notes": notes})
+
+    centre = primary.centroid
+    cv_centre_lat = centre.latitude
+    cv_centre_lng = centre.longitude
+
+    try:
+        if image_bytes is not None and tile_metadata is not None:
+            refinement = roof_segmentation.refine_polygon(
+                primary.coordinates_lat_lng,
+                origin_lat=cv_centre_lat,
+                origin_lng=cv_centre_lng,
+                image_bytes=image_bytes,
+                centre_lat=cv_centre_lat,
+                centre_lng=cv_centre_lng,
+                image_size_px=int(tile_metadata["size_px"]),
+                scale=int(tile_metadata["scale"]),
+                zoom=int(tile_metadata["zoom"]),
+            )
+        else:
+            refinement = roof_segmentation.refine_polygon(
+                primary.coordinates_lat_lng,
+                origin_lat=cv_centre_lat,
+                origin_lng=cv_centre_lng,
+                image_bytes=None,
+            )
+    except roof_segmentation.RoofSegmentationError as exc:
+        notes.append(f"CV refinement failed: {exc}. Falling back to OSM polygon.")
+        return detection.model_copy(update={"notes": notes})
+
+    flat = roof_orientation.is_flat_roof(primary.tags)
+    tilt = roof_orientation.estimate_tilt(primary.tags, latitude=centre.latitude)
+    azimuth = roof_orientation.estimate_azimuth(
+        refinement.polygon_lat_lng,
+        is_flat_roof=flat,
+        fallback_deg=settings.default_azimuth_deg,
+    )
+
+    notes.extend(refinement.notes)
+
+    return detection.model_copy(
+        update={
+            "notes": notes,
+            "segmentation_polygon_lat_lng": refinement.polygon_lat_lng,
+            "segmentation_area_m2": refinement.area_m2,
+            "segmentation_confidence": refinement.confidence,
+            "estimated_tilt_deg": tilt.tilt_deg,
+            "estimated_tilt_source": tilt.source,
+            "estimated_azimuth_deg": azimuth.azimuth_deg,
+            "estimated_azimuth_source": azimuth.source,
+        }
+    )
+
+
+async def analyze_roof(
+    pin: Location,
+    *,
+    search_radius_m: float | None = None,
+    enable_cv: bool = True,
+) -> RoofDetectionResult:
+    """Full roof analysis: OSM detection + CV refinement + tilt/azimuth.
+
+    The CV refinement is best-effort. If the satellite tile cannot be
+    fetched (no API key, transport error, non-image response, decoding
+    error) the function still returns a populated
+    :class:`RoofDetectionResult` with the OSM polygon, an OSM-only
+    regularised polygon, a confidence of 0, and an explanatory note —
+    *never* an HTTP error to the caller. The energy pipeline can then
+    proceed with the OSM polygon and the heuristic tilt/azimuth.
+    """
+    detection = await detect_roof(pin, search_radius_m=search_radius_m)
+
+    if not enable_cv:
+        notes = list(detection.notes)
+        notes.append("CV refinement disabled by request (enable_cv=False).")
+        return _apply_cv_refinement(
+            detection.model_copy(update={"notes": notes}),
+            image_bytes=None,
+            tile_metadata=None,
+        )
+
+    primary = detection.primary_roof
+    if primary is None:
+        return _apply_cv_refinement(detection, image_bytes=None, tile_metadata=None)
+
+    image_bytes, tile_metadata, fetch_notes = await _try_fetch_satellite_tile(
+        primary.centroid
+    )
+    if fetch_notes:
+        detection = detection.model_copy(
+            update={"notes": [*detection.notes, *fetch_notes]}
+        )
+    return _apply_cv_refinement(
+        detection, image_bytes=image_bytes, tile_metadata=tile_metadata
     )

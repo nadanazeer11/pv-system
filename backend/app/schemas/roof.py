@@ -3,13 +3,14 @@
 Day 10 lands the OSM-Overpass + Google Maps Static halves: given a
 geographic point, the system fetches every nearby OpenStreetMap building
 footprint, picks the one most likely to be the user's roof, and reports
-its polygon and area in metric units. Day 11 adds the computer-vision
-refinement on top of the satellite tile.
+its polygon and area in metric units. Day 11 layers the computer-vision
+refinement on top of the satellite tile and estimates roof tilt and
+azimuth — the geometric inputs the energy models need.
 
-The result schema is shaped so the same payload survives Day 11 with
-only additive fields (``segmentation_polygon_lat_lng``, ``estimated_tilt_deg``,
-``estimated_azimuth_deg``), which keeps the API contract stable while
-the academic pipeline is built up incrementally.
+The CV fields on :class:`RoofDetectionResult` are optional. The Day-10
+``/api/roof/detect`` endpoint never populates them; Day-11's
+``/api/roof/analyze`` endpoint does. Existing clients that only consume
+the OSM half therefore see an unchanged response shape.
 """
 from __future__ import annotations
 
@@ -143,6 +144,93 @@ class RoofDetectionResult(BaseModel):
     notes: list[str] = Field(
         default_factory=list,
         description="Human-readable notes — e.g. 'API key not configured', 'no buildings'.",
+    )
+    # ── Day 11 CV refinement (optional; populated by /api/roof/analyze) ─
+    segmentation_polygon_lat_lng: list[tuple[float, float]] | None = Field(
+        None,
+        description=(
+            "Closed lat/lng ring produced by the CV-aware refinement of "
+            "the OSM polygon (typically the minimum-rotated-rectangle "
+            "regularisation, optionally snapped to image gradients). "
+            "Null when no satellite imagery was available."
+        ),
+    )
+    segmentation_area_m2: float | None = Field(
+        None,
+        ge=0,
+        description="Area of the refined polygon in square metres. Null when CV did not run.",
+    )
+    segmentation_confidence: float | None = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Normalised score in [0,1] describing how strongly the OSM "
+            "polygon edges align with the satellite image's gradient "
+            "structure. 0 means the imagery could not be evaluated; 1 "
+            "means every polygon edge sits on a strong, contiguous "
+            "intensity ridge in the satellite tile."
+        ),
+    )
+    estimated_tilt_deg: float | None = Field(
+        None,
+        ge=0.0,
+        le=90.0,
+        description=(
+            "Recommended PV panel tilt in degrees. For flat roofs this is "
+            "the latitude-optimal panel tilt (panels tilted on racks); for "
+            "pitched roofs this is the roof surface pitch (panels laid "
+            "flush). Null when CV did not run."
+        ),
+    )
+    estimated_tilt_source: str | None = Field(
+        None,
+        description=(
+            "Provenance of the tilt estimate: 'osm:roof:angle', "
+            "'osm:roof:shape', 'flat-roof-default-cairo-optimum', or "
+            "'fallback-cairo-default'."
+        ),
+    )
+    estimated_azimuth_deg: float | None = Field(
+        None,
+        ge=0.0,
+        le=360.0,
+        description=(
+            "Recommended PV panel azimuth in degrees from north (180 = "
+            "south). Derived from the polygon's principal axis with "
+            "cardinal-snapping for axis-aligned footprints. Null when CV "
+            "did not run."
+        ),
+    )
+    estimated_azimuth_source: str | None = Field(
+        None,
+        description=(
+            "Provenance of the azimuth estimate: 'polygon-long-edge', "
+            "'polygon-long-edge-snapped-cardinal', or 'fallback-south'."
+        ),
+    )
+
+
+class RoofAnalysisRequest(BaseModel):
+    """Input for the full detect+CV-refine endpoint (Day 11)."""
+
+    location: Location = Field(
+        ...,
+        description="Geographic point inside (or near) the target rooftop.",
+    )
+    search_radius_m: float | None = Field(
+        None,
+        gt=0,
+        description="Overpass search radius (defaults to the configured Egypt-tuned value).",
+    )
+    enable_cv: bool = Field(
+        True,
+        description=(
+            "Toggle for the CV refinement pass. Set False to skip the "
+            "satellite-tile fetch entirely (useful for offline tests or "
+            "bandwidth-limited deployments) — the response still carries "
+            "the OSM polygon and Day-11 tilt/azimuth heuristics."
+        ),
     )
 
 
