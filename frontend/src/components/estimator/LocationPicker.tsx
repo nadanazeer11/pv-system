@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { KnowMoreButton } from '@/components/ui/KnowMoreButton';
 import { useRoofDetect } from '@/hooks/useRoofDetect';
-import type { Location } from '@/types/api';
+import type { Location, RoofPolygon } from '@/types/api';
 import { AddressInput } from './AddressInput';
 import { RoofMapPreview } from './RoofMapPreview';
 
@@ -14,6 +14,13 @@ type LocationPickerProps = {
    * usable in isolation (and in tests) without forcing a callback.
    */
   onLocationChange?: (location: Location | null) => void;
+  /**
+   * Forwarded up whenever the OSM roof-detection result for the current
+   * pin changes. The Day-14 dashboard uses this to pre-fill its roof
+   * area input — the user can still override the value, but a working
+   * detection produces a one-click "Estimate" experience.
+   */
+  onRoofChange?: (roof: RoofPolygon | null) => void;
   /**
    * ISO 3166-1 alpha-2 country bias for the address search. Defaults to
    * "eg" because the thesis is Egypt-focused; pass an empty string to
@@ -38,6 +45,7 @@ type LocationPickerProps = {
  */
 export function LocationPicker({
   onLocationChange,
+  onRoofChange,
   geocoderCountryCodes = 'eg',
 }: LocationPickerProps) {
   const [location, setLocation] = useState<Location | null>(null);
@@ -47,6 +55,10 @@ export function LocationPicker({
   useEffect(() => {
     onLocationChange?.(location);
   }, [location, onLocationChange]);
+
+  useEffect(() => {
+    onRoofChange?.(roofDetect.data?.primary_roof ?? null);
+  }, [roofDetect.data, onRoofChange]);
 
   // Whenever a *new* location lands, ask the backend for the building
   // footprint at that pin. We don't gate this on user action because
