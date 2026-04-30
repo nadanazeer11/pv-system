@@ -7,6 +7,12 @@
 
 ---
 
+## Plain English
+
+Today we connected the project to PVGIS, a free European weather database that tells us how much sun any spot on Earth gets in a typical year. We built a small piece of the backend that takes a latitude and longitude (for example, Cairo) and downloads the full year of hourly weather — sunlight, temperature, and wind. We then wrote a feature that summarises this data into a few easy numbers, like the total yearly sunshine and the average temperature. We tested everything with both fake data (to make sure the code is correct) and real data (to make sure Cairo's numbers match what published Egyptian solar studies report). This is the foundation everything else stands on, because every solar calculation we do later starts from this weather data.
+
+---
+
 ## What I built
 
 A backend service that fetches **Typical Meteorological Year (TMY)** weather data from the **PVGIS** API for any latitude/longitude, plus a FastAPI endpoint (`POST /api/weather/tmy`) that returns annual summary statistics for the location.
