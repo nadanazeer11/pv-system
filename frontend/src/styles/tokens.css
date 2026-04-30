@@ -1,0 +1,22 @@
+/* Design tokens — single source of truth for non-Tailwind consumers
+ * (Recharts, Leaflet popups, etc.). Tailwind tokens in tailwind.config.ts
+ * mirror these values; keep the two in sync.
+ */
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #f3f3f3;
+  --color-ink: #191a23;
+  --color-ink-soft: #4a4b57;
+  --color-accent: #b9ff66;
+  --color-accent-soft: #e8ffd4;
+  --color-border: #191a23;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+
+  --radius-card: 16px;
+  --radius-card-lg: 24px;
+}
