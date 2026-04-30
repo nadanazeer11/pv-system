@@ -78,6 +78,36 @@ class Settings(BaseSettings):
     # ground-resolution formula is auditable.
     web_mercator_zoom0_meters_per_pixel: float = 156543.03392
 
+    # Roof CV segmentation (Day 11) ───────────────────────────────────
+    # Width (in metres) of the band drawn either side of an OSM polygon
+    # edge when scoring image-gradient alignment. 1.0 m ≈ 7 px at the
+    # zoom-20/scale-2 default, which is wide enough to absorb GPS jitter
+    # and OSM digitisation noise (typical 0.5–1.5 m positional error per
+    # OSMF accuracy studies) without bleeding into neighbouring rooftops.
+    cv_edge_band_width_m: float = 1.0
+    # Confidence floor for the OSM-only fallback when the satellite tile
+    # cannot be loaded (e.g. transport failure, missing API key). 0.0
+    # signals "no CV evidence", but the OSM polygon is still surfaced
+    # because the vector source is independently authoritative.
+    cv_no_image_confidence: float = 0.0
+    # When the OSM polygon is poorly axis-aligned (long-edge azimuth
+    # within this many degrees of a cardinal heading) we *snap* the
+    # estimated panel azimuth to the nearest cardinal — installers
+    # almost always orient panels along the building's primary edges,
+    # and OSM digitisation jitter can rotate a square footprint by 1–2°.
+    cv_azimuth_snap_tolerance_deg: float = 8.0
+    # Default tilt assumptions when OSM tags are missing — Egyptian
+    # residential rooftops are overwhelmingly flat concrete slabs, so
+    # the prior on "no tag" is "flat", and panels on a flat slab are
+    # tilted to the latitude optimum. Pitched-roof shapes default to
+    # the published Egyptian residential pitch median (≈30°).
+    cv_default_pitched_roof_tilt_deg: float = 30.0
+    cv_default_shed_roof_tilt_deg: float = 15.0
+    # Bound checks for OSM-supplied roof:angle tag — anything outside
+    # this band is treated as a tagging error and ignored.
+    cv_min_roof_angle_deg: float = 0.0
+    cv_max_roof_angle_deg: float = 60.0
+
     # PV hardware defaults
     panel_rated_watts: float = 450.0
     panel_area_m2: float = 1.8

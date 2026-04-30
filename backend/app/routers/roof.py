@@ -1,19 +1,25 @@
-"""Roof detection endpoints (Day 10 — OSM-Overpass + Google Maps Static).
+"""Roof detection endpoints (Days 10–11).
 
-Two endpoints sit behind ``/api/roof``:
+Three endpoints sit behind ``/api/roof``:
 
-* ``POST /api/roof/detect`` — vector-side detection (OpenStreetMap
-  Overpass building footprints + selection logic).
-* ``POST /api/roof/satellite-tile`` — helper for the frontend to fetch
+* ``POST /api/roof/detect`` — vector-side detection only (OpenStreetMap
+  Overpass + selection logic). Day 10.
+* ``POST /api/roof/satellite-tile`` — helper for the frontend to obtain
   a Google Maps Static URL with the ground-resolution metadata needed
-  to draw the OSM polygon over the imagery.
+  to draw the OSM polygon over the imagery. Day 10.
+* ``POST /api/roof/analyze`` — full pipeline: detect + satellite-tile
+  fetch + CV polygon refinement + tilt and azimuth estimation. Day 11.
 
-Day 11's CV-segmentation endpoint will compose these two — that's why
-they are exposed as separate routes today rather than buried inside one.
+The split is deliberate: ``/detect`` is cheap (one Overpass call), while
+``/analyze`` issues one Overpass call *and* one Google Maps Static
+download, then runs CPU-bound CV. Frontends that only need the polygon
+(e.g. a quick-preview map) use ``/detect``; the full estimator pipeline
+uses ``/analyze``.
 """
 from fastapi import APIRouter, HTTPException
 
 from app.schemas.roof import (
+    RoofAnalysisRequest,
     RoofDetectionRequest,
     RoofDetectionResult,
     SatelliteTileRequest,
@@ -92,3 +98,35 @@ async def satellite_tile(request: SatelliteTileRequest) -> SatelliteTileResult:
         tile_width_m=float(metadata["tile_width_m"]),
         tile_height_m=float(metadata["tile_height_m"]),
     )
+
+
+@router.post("/analyze", response_model=RoofDetectionResult)
+async def analyze(request: RoofAnalysisRequest) -> RoofDetectionResult:
+    """Run the full Day-11 pipeline (detect + CV refinement + tilt/azimuth).
+
+    The endpoint *never* surfaces a CV failure as an HTTP error: a
+    transport-level Google Maps failure, a non-image response, or a
+    decoding failure all degrade gracefully to "OSM-only" with a
+    populated note. This matches the conservative philosophy used by
+    ``/detect`` (an empty Overpass result also returns 200) and lets
+    the frontend show one rendering path for both states.
+
+    Status codes
+    ------------
+    * 200 — analysis completed (with or without CV evidence).
+    * 422 — invalid input (e.g. non-positive radius).
+    * 502 — the OSM Overpass upstream failed (the same condition that
+      makes ``/detect`` return 502, since without a vector polygon the
+      CV pass has nothing to refine).
+    """
+    try:
+        return await roof_detection.analyze_roof(
+            request.location,
+            search_radius_m=request.search_radius_m,
+            enable_cv=request.enable_cv,
+        )
+    except roof_detection.RoofDetectionError as exc:
+        message = str(exc)
+        if "OSM Overpass fetch failed" in message:
+            raise HTTPException(status_code=502, detail=message) from exc
+        raise HTTPException(status_code=422, detail=message) from exc
