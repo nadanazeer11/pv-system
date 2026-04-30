@@ -49,7 +49,34 @@ class Settings(BaseSettings):
     # External APIs
     pvgis_base_url: str = "https://re.jrc.ec.europa.eu/api/v5_2"
     google_maps_api_key: str = ""
+    google_maps_static_url: str = "https://maps.googleapis.com/maps/api/staticmap"
     overpass_url: str = "https://overpass-api.de/api/interpreter"
+    # Network timeouts for the two roof-detection upstreams (seconds).
+    # Overpass is slow under load; Google Maps Static is fast but we
+    # still want a hard ceiling so the API surface fails fast.
+    overpass_timeout_s: float = 30.0
+    gmaps_static_timeout_s: float = 15.0
+
+    # Roof detection (Day 10) ─────────────────────────────────────────
+    # Search radius for OSM Overpass building queries. 50 m is a
+    # deliberately conservative choice for the Egyptian residential
+    # context: typical Cairo plot frontage is 10–25 m, and 50 m comfortably
+    # captures the building containing the dropped pin plus a couple of
+    # neighbours, without inflating the response with city-block-scale
+    # results. Capped at 500 m to prevent accidental abuse of the public
+    # Overpass instance.
+    roof_search_radius_m: float = 50.0
+    roof_search_radius_max_m: float = 500.0
+    # Google Maps Static tile defaults — zoom 20 is the highest free tier
+    # and gives ~14 cm/pixel at Cairo latitude (with scale=2), enough for
+    # roof-edge detection. 640×640 is the maximum non-premium image size.
+    gmaps_static_default_zoom: int = 20
+    gmaps_static_default_size_px: int = 640
+    gmaps_static_default_scale: int = 2
+    # Web Mercator equatorial pixel size at zoom 0 (a Google constant
+    # derived from the Earth's circumference). Documented so the
+    # ground-resolution formula is auditable.
+    web_mercator_zoom0_meters_per_pixel: float = 156543.03392
 
     # PV hardware defaults
     panel_rated_watts: float = 450.0
