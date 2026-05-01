@@ -100,6 +100,28 @@ export type EnergyPvlibResult = {
   system_losses_fraction: number;
 };
 
+// ── /api/energy/manual — backend/app/schemas/energy.py ──────────────────
+
+export type EnergyManualRequest = EnergyPvlibRequest;
+
+export type EnergyManualResult = {
+  /** Discriminator emitted by the backend (always "manual"). */
+  model: 'manual';
+  annual_kwh: number;
+  /** 12 calendar-month AC totals, January..December (kWh). */
+  monthly_kwh: number[];
+  specific_yield_kwh_per_kwp: number;
+  capacity_factor: number;
+  performance_ratio: number;
+  poa_annual_kwh_per_m2: number;
+  mean_cell_temp_c: number;
+  system_kw: number;
+  tilt_deg: number;
+  azimuth_deg: number;
+  inverter_efficiency: number;
+  system_losses_fraction: number;
+};
+
 // ── /api/tariff/savings — backend/app/schemas/tariff.py ─────────────────
 
 export type MonthlyBillBreakdown = {

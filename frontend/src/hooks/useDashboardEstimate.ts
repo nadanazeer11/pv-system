@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { request } from '@/lib/api';
 import type {
+  EnergyManualResult,
   EnergyPvlibResult,
   Location,
   MonteCarloResult,
@@ -25,6 +26,17 @@ export type DashboardEstimateInput = {
 export type DashboardEstimateResult = {
   sizing: SizingResult;
   energy: EnergyPvlibResult;
+  /**
+   * Day-15 addition: the manual physics-based simulation result.
+   *
+   * pvlib remains the canonical input to downstream tariff and Monte
+   * Carlo calculations, so the dashboard's headline numbers do not
+   * change with the dual-model rollout. ``energy_manual`` is consumed
+   * exclusively by the comparison view to validate the pvlib chain
+   * against an independent reference implementation — the thesis's
+   * model-uncertainty quantification.
+   */
+  energy_manual: EnergyManualResult;
   tariff: TariffSavingsResult;
   monte_carlo: MonteCarloResult;
 };
@@ -54,13 +66,27 @@ export function useDashboardEstimate() {
         body: { roof_area_m2: input.roof_area_m2 },
       });
 
-      const energy = await request<EnergyPvlibResult>('/api/energy/pvlib', {
-        method: 'POST',
-        body: {
-          location: input.location,
-          system_kw: sizing.system_kw,
-        },
-      });
+      // The two energy models share inputs (location + system_kw) and do
+      // not depend on one another, so we issue them in parallel — the
+      // dashboard's wall-clock time is the slower of the two PVGIS
+      // round-trips, not their sum. pvlib is canonical for downstream
+      // tariff / Monte Carlo; manual feeds Day-15's comparison view.
+      const [energy, energy_manual] = await Promise.all([
+        request<EnergyPvlibResult>('/api/energy/pvlib', {
+          method: 'POST',
+          body: {
+            location: input.location,
+            system_kw: sizing.system_kw,
+          },
+        }),
+        request<EnergyManualResult>('/api/energy/manual', {
+          method: 'POST',
+          body: {
+            location: input.location,
+            system_kw: sizing.system_kw,
+          },
+        }),
+      ]);
 
       const monthly_consumption_kwh = Array.from(
         { length: 12 },
@@ -93,7 +119,7 @@ export function useDashboardEstimate() {
         },
       });
 
-      return { sizing, energy, tariff, monte_carlo };
+      return { sizing, energy, energy_manual, tariff, monte_carlo };
     },
   });
 }

@@ -48,6 +48,22 @@ const ENERGY_RESULT = {
   system_losses_fraction: 0.14,
 };
 
+const ENERGY_MANUAL_RESULT = {
+  model: 'manual' as const,
+  annual_kwh: 44100, // ~2% lower than pvlib — strong agreement
+  monthly_kwh: [3450, 3250, 3700, 3950, 4150, 4200, 4300, 4200, 3950, 3650, 3250, 3150],
+  specific_yield_kwh_per_kwp: 1782,
+  capacity_factor: 0.203,
+  performance_ratio: 0.80,
+  poa_annual_kwh_per_m2: 2210,
+  mean_cell_temp_c: 39,
+  system_kw: 24.75,
+  tilt_deg: 26,
+  azimuth_deg: 180,
+  inverter_efficiency: 0.96,
+  system_losses_fraction: 0.14,
+};
+
 const TARIFF_RESULT = {
   bill_before_egp: 4200,
   bill_after_egp: 800,
@@ -188,6 +204,8 @@ describe('Dashboard', () => {
     expect(screen.getAllByRole('button', { name: /know more/i }).length).toBe(4);
     // No real number rendered yet — every card shows the em-dash placeholder.
     expect(screen.getAllByText('—').length).toBe(4);
+    // Day-15 model-comparison section is hidden until an estimate has run.
+    expect(screen.queryByTestId('model-comparison-section')).not.toBeInTheDocument();
   });
 
   it('disables the submit button until a location is supplied', () => {
@@ -208,10 +226,11 @@ describe('Dashboard', () => {
     ).toBeInTheDocument();
   });
 
-  it('runs the four-call chain and renders all four metrics on success', async () => {
+  it('runs the five-call chain and renders all four metrics on success', async () => {
     const { fn, calls } = mockFetchSequence([
       { url: /\/api\/sizing/, body: SIZING_RESULT },
       { url: /\/api\/energy\/pvlib/, body: ENERGY_RESULT },
+      { url: /\/api\/energy\/manual/, body: ENERGY_MANUAL_RESULT },
       { url: /\/api\/tariff\/savings/, body: TARIFF_RESULT },
       { url: /\/api\/monte-carlo\/run/, body: MONTE_CARLO_RESULT },
     ]);
@@ -220,7 +239,10 @@ describe('Dashboard', () => {
     fireEvent.click(screen.getByRole('button', { name: /estimate savings/i }));
 
     await waitFor(() => expect(screen.getByText('24.75')).toBeInTheDocument());
-    expect(screen.getByText('45,000')).toBeInTheDocument(); // annual kWh
+    // pvlib annual_kwh appears in both the MetricCard and the
+    // comparison panel — the latter is Day 15's new surface, so we
+    // assert on multiplicity rather than uniqueness.
+    expect(screen.getAllByText('45,000').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('3,400')).toBeInTheDocument(); // EGP/yr savings
     expect(screen.getByText('7.2')).toBeInTheDocument(); // payback p50
     // Half-width = (9.4 - 5.6) / 2 = 1.9
@@ -230,23 +252,41 @@ describe('Dashboard', () => {
     // Probability of payback within horizon — 0.97 → 97%
     expect(screen.getByText(/probability of payback within horizon: 97%/i)).toBeInTheDocument();
 
-    // Order matters: sizing → energy → tariff → monte-carlo.
-    expect(fn).toHaveBeenCalledTimes(4);
-    expect(calls[0].url).toMatch(/\/api\/sizing$/);
-    expect(calls[1].url).toMatch(/\/api\/energy\/pvlib$/);
-    expect(calls[2].url).toMatch(/\/api\/tariff\/savings$/);
-    expect(calls[3].url).toMatch(/\/api\/monte-carlo\/run$/);
+    // Day-15 model-comparison section now visible with both annuals.
+    expect(screen.getByTestId('model-comparison-section')).toBeInTheDocument();
+    expect(screen.getByText(/why two energy models\?/i)).toBeInTheDocument();
+    expect(screen.getByText('44,100')).toBeInTheDocument(); // manual annual_kwh
+    // Residual = 44,100 − 45,000 = −900 (-2.0%) — strong agreement.
+    expect(screen.getByText('-900')).toBeInTheDocument();
+    expect(screen.getByText(/strong agreement/i)).toBeInTheDocument();
+    // Monthly chart is mounted with its KnowMore button.
+    expect(screen.getByText(/monthly production/i)).toBeInTheDocument();
 
-    // Each downstream call consumed the previous step's output.
+    // Day-15: five calls total (sizing, then pvlib + manual in parallel,
+    // then tariff, then monte-carlo). pvlib and manual may arrive in
+    // either order on the wire, but both must appear before tariff.
+    expect(fn).toHaveBeenCalledTimes(5);
+    expect(calls[0].url).toMatch(/\/api\/sizing$/);
+    const energyUrls = [calls[1].url, calls[2].url].sort();
+    expect(energyUrls[0]).toMatch(/\/api\/energy\/manual$/);
+    expect(energyUrls[1]).toMatch(/\/api\/energy\/pvlib$/);
+    expect(calls[3].url).toMatch(/\/api\/tariff\/savings$/);
+    expect(calls[4].url).toMatch(/\/api\/monte-carlo\/run$/);
+
+    // Both energy calls inherited system_kw from sizing.
     expect((calls[1].body as { system_kw: number }).system_kw).toBe(SIZING_RESULT.system_kw);
-    const tariffBody = calls[2].body as {
+    expect((calls[2].body as { system_kw: number }).system_kw).toBe(SIZING_RESULT.system_kw);
+
+    const tariffBody = calls[3].body as {
       monthly_consumption_kwh: number[];
       monthly_generation_kwh: number[];
     };
     expect(tariffBody.monthly_consumption_kwh).toHaveLength(12);
     expect(tariffBody.monthly_consumption_kwh[0]).toBe(350); // default
+    // Tariff still uses pvlib's monthly profile — pvlib remains canonical
+    // for downstream tariff / Monte Carlo on Day 15.
     expect(tariffBody.monthly_generation_kwh).toEqual(ENERGY_RESULT.monthly_kwh);
-    const mcBody = calls[3].body as {
+    const mcBody = calls[4].body as {
       system_kw: number;
       annual_kwh: number;
       tariff_egp_per_kwh: number;
@@ -258,6 +298,10 @@ describe('Dashboard', () => {
   });
 
   it('surfaces an inline error when the chain aborts', async () => {
+    // pvlib fails; manual is configured to succeed but its result is
+    // discarded because Promise.all rejects on the first failure. We
+    // include the manual mock so the test does not depend on which of
+    // the two parallel calls happens to reject first.
     mockFetchSequence([
       { url: /\/api\/sizing/, body: SIZING_RESULT },
       {
@@ -266,6 +310,7 @@ describe('Dashboard', () => {
         status: 502,
         body: { detail: 'PVGIS unavailable' },
       },
+      { url: /\/api\/energy\/manual/, body: ENERGY_MANUAL_RESULT },
     ]);
 
     renderWithClient(<Dashboard location={CAIRO_LOCATION} roof={ROOF_POLYGON} />);
@@ -276,6 +321,8 @@ describe('Dashboard', () => {
     );
     // No metric ever rendered.
     expect(screen.getAllByText('—').length).toBe(4);
+    // Day-15 comparison section never mounted.
+    expect(screen.queryByTestId('model-comparison-section')).not.toBeInTheDocument();
   });
 
   it('lets the user override the pre-filled roof area', () => {
