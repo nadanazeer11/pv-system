@@ -134,6 +134,15 @@ const MONTE_CARLO_RESULT = {
   positive_npv_probability: 1.0,
   payback_histogram: { bin_edges: [5, 6, 7, 8, 9, 10], counts: [50, 200, 400, 250, 100] },
   npv_histogram: { bin_edges: [40000, 80000, 120000, 160000], counts: [100, 700, 200] },
+  cumulative_cash_flow_trajectory: {
+    year_index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    p05: [-200000, -180000, -160000, -140000, -120000, -100000, -80000, -60000, -40000, -20000, 0],
+    p25: [-180000, -160000, -140000, -120000, -100000, -80000, -60000, -40000, -20000, 0, 20000],
+    p50: [-150000, -130000, -110000, -90000, -70000, -50000, -30000, -10000, 10000, 30000, 50000],
+    p75: [-120000, -100000, -80000, -60000, -40000, -20000, 0, 20000, 40000, 60000, 80000],
+    p95: [-100000, -80000, -60000, -40000, -20000, 0, 20000, 40000, 60000, 80000, 100000],
+    mean: [-150000, -130000, -110000, -90000, -70000, -50000, -30000, -10000, 10000, 30000, 50000],
+  },
   system_kw: 24.75,
   annual_kwh: 45000,
   tariff_egp_per_kwh: 0.81,
@@ -206,6 +215,8 @@ describe('Dashboard', () => {
     expect(screen.getAllByText('—').length).toBe(4);
     // Day-15 model-comparison section is hidden until an estimate has run.
     expect(screen.queryByTestId('model-comparison-section')).not.toBeInTheDocument();
+    // Day-16 monte-carlo section is also hidden in the placeholder state.
+    expect(screen.queryByTestId('monte-carlo-section')).not.toBeInTheDocument();
   });
 
   it('disables the submit button until a location is supplied', () => {
@@ -261,6 +272,14 @@ describe('Dashboard', () => {
     expect(screen.getByText(/strong agreement/i)).toBeInTheDocument();
     // Monthly chart is mounted with its KnowMore button.
     expect(screen.getByText(/monthly production/i)).toBeInTheDocument();
+
+    // Day-16 monte-carlo section is also visible — both the histogram
+    // and the ROI fan chart, each with its own KnowMore explainer.
+    expect(screen.getByTestId('monte-carlo-section')).toBeInTheDocument();
+    expect(screen.getByText(/payback distribution/i)).toBeInTheDocument();
+    expect(screen.getByText(/cumulative return — uncertainty fan/i)).toBeInTheDocument();
+    // Reference label on the fan chart anchors the median payback year.
+    expect(screen.getByText(/median payback ≈ year 7\.2/i)).toBeInTheDocument();
 
     // Day-15: five calls total (sizing, then pvlib + manual in parallel,
     // then tariff, then monte-carlo). pvlib and manual may arrive in
@@ -323,6 +342,8 @@ describe('Dashboard', () => {
     expect(screen.getAllByText('—').length).toBe(4);
     // Day-15 comparison section never mounted.
     expect(screen.queryByTestId('model-comparison-section')).not.toBeInTheDocument();
+    // Day-16 monte-carlo section is also gated on a successful chain.
+    expect(screen.queryByTestId('monte-carlo-section')).not.toBeInTheDocument();
   });
 
   it('lets the user override the pre-filled roof area', () => {

@@ -172,6 +172,26 @@ export type HistogramBins = {
   counts: number[];
 };
 
+/**
+ * Day-16 addition: year-by-year percentile bands of the discounted
+ * cumulative cash flow, used to render the Monte Carlo fan chart.
+ *
+ * Each array is length ``analysis_period_years + 1``. Index 0 is the
+ * year of the capex draw (a strictly negative number whose own spread
+ * already reflects capex-quote uncertainty). Bands are computed
+ * column-wise — i.e. they are envelope percentiles at each year, not
+ * the trajectory of any single Monte Carlo simulation.
+ */
+export type CumulativeCashFlowTrajectory = {
+  year_index: number[];
+  p05: number[];
+  p25: number[];
+  p50: number[];
+  p75: number[];
+  p95: number[];
+  mean: number[];
+};
+
 export type MonteCarloRequest = {
   system_kw: number;
   annual_kwh: number;
@@ -192,6 +212,7 @@ export type MonteCarloResult = {
   positive_npv_probability: number;
   payback_histogram: HistogramBins;
   npv_histogram: HistogramBins;
+  cumulative_cash_flow_trajectory: CumulativeCashFlowTrajectory;
   system_kw: number;
   annual_kwh: number;
   tariff_egp_per_kwh: number;

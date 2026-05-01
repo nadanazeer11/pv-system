@@ -279,6 +279,40 @@ class HistogramBins(BaseModel):
     )
 
 
+class CumulativeCashFlowTrajectory(BaseModel):
+    """Year-by-year discounted cumulative cash-flow percentile bands.
+
+    Day 16 introduces the dashboard's "fan chart for cumulative ROI":
+    instead of one curve, we show how the project's running net worth
+    evolves under the full ensemble of Monte Carlo simulations. Each
+    array is length ``analysis_period_years + 1`` — index 0 is the
+    year-0 capex draw (a negative number whose own spread reflects
+    capex-quote uncertainty), and index ``k`` is the discounted
+    cumulative cash flow at the end of year ``k`` aggregated *across*
+    the simulation ensemble.
+
+    Reporting bands rather than a single mean curve is the whole point
+    of the contribution: a homeowner sees not just "the median crosses
+    zero in year 7" but also "the worst-case 5 % of futures still owe
+    money in year 12" and "the best 5 % of futures double their money
+    by year 15".
+    """
+
+    year_index: list[int] = Field(
+        ...,
+        description=(
+            "Year markers from 0 (year of capex draw) through the "
+            "analysis horizon. Length = analysis_period_years + 1."
+        ),
+    )
+    p05: list[float] = Field(..., description="5th-percentile band (EGP).")
+    p25: list[float] = Field(..., description="25th-percentile band (EGP).")
+    p50: list[float] = Field(..., description="Median trajectory (EGP).")
+    p75: list[float] = Field(..., description="75th-percentile band (EGP).")
+    p95: list[float] = Field(..., description="95th-percentile band (EGP).")
+    mean: list[float] = Field(..., description="Sample-mean trajectory (EGP).")
+
+
 class MonteCarloResult(BaseModel):
     """Output of ``POST /api/monte-carlo/run``."""
 
@@ -334,6 +368,16 @@ class MonteCarloResult(BaseModel):
     )
     npv_histogram: HistogramBins = Field(
         ..., description="Histogram of NPV across all simulations."
+    )
+
+    cumulative_cash_flow_trajectory: CumulativeCashFlowTrajectory = Field(
+        ...,
+        description=(
+            "Year-by-year percentile bands of the discounted cumulative "
+            "cash flow. Drives the Day-16 dashboard fan chart and lets a "
+            "reviewer read off the median ROI year, the worst-case "
+            "trough, and the best-case lifetime gain in one figure."
+        ),
     )
 
     # Echoed deterministic inputs.
