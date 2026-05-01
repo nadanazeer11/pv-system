@@ -488,3 +488,107 @@ def test_unknown_distribution_kind_raises_at_sample():
     bad = Distribution.model_construct(kind="cauchy", mean=0.0, std=1.0)
     with pytest.raises(mc.MonteCarloError):
         mc._sample(bad, rng, 10)
+
+
+# ─────────────────── Day 16 — fan-chart trajectory ──────────────────
+
+
+def test_trajectory_year_index_covers_capex_through_horizon():
+    """The fan chart's x-axis is years 0..T inclusive: year 0 is the
+    capex draw, year T is the end of the analysis horizon. Length
+    must equal analysis_period_years + 1."""
+    horizon = 25
+    result = mc.run_monte_carlo(
+        MonteCarloRequest(
+            system_kw=5.0, annual_kwh=8000.0, tariff_egp_per_kwh=2.0,
+            analysis_period_years=horizon,
+            n_simulations=200, random_seed=11,
+        )
+    )
+    traj = result.cumulative_cash_flow_trajectory
+    assert traj.year_index == list(range(horizon + 1))
+    for band in (traj.p05, traj.p25, traj.p50, traj.p75, traj.p95, traj.mean):
+        assert len(band) == horizon + 1
+
+
+def test_trajectory_year_zero_is_negative_capex():
+    """Year-0 cumulative cash flow is the (negative) capex draw before
+    any savings have accrued. Every percentile band must therefore be
+    strictly negative at index 0 — sanity check that the algebra
+    inside the cumulative matrix follows the deterministic chain."""
+    result = mc.run_monte_carlo(
+        MonteCarloRequest(
+            system_kw=5.0, annual_kwh=8000.0, tariff_egp_per_kwh=2.0,
+            n_simulations=300, random_seed=44,
+        )
+    )
+    traj = result.cumulative_cash_flow_trajectory
+    for band in (traj.p05, traj.p25, traj.p50, traj.p75, traj.p95, traj.mean):
+        assert band[0] < 0
+
+
+def test_trajectory_percentile_bands_are_ordered():
+    """At every year, p05 ≤ p25 ≤ p50 ≤ p75 ≤ p95. This is the most
+    important structural property a fan chart relies on — if any
+    crossing happened the visualisation would render absurd
+    overlapping ribbons."""
+    result = mc.run_monte_carlo(
+        MonteCarloRequest(
+            system_kw=5.0, annual_kwh=8000.0, tariff_egp_per_kwh=2.0,
+            n_simulations=400, random_seed=55,
+        )
+    )
+    traj = result.cumulative_cash_flow_trajectory
+    for k in range(len(traj.year_index)):
+        assert traj.p05[k] <= traj.p25[k] <= traj.p50[k]
+        assert traj.p50[k] <= traj.p75[k] <= traj.p95[k]
+
+
+def test_trajectory_zero_variance_collapses_to_deterministic_chain():
+    """When every distribution has zero spread the fan chart must
+    collapse to a single curve (all bands identical), and that curve
+    must match the deterministic financial_basic cumulative cash flow
+    augmented with the inverter-replacement event."""
+    request = _zero_dist_request(n_simulations=50)
+    result = mc.run_monte_carlo(request)
+    traj = result.cumulative_cash_flow_trajectory
+    for k in range(len(traj.year_index)):
+        # Every band collapses onto the same value.
+        assert math.isclose(traj.p05[k], traj.p95[k], abs_tol=1e-6)
+        assert math.isclose(traj.p50[k], traj.mean[k], abs_tol=1e-6)
+    # The deterministic median must cross zero at the deterministic
+    # payback year reported in the same response.
+    payback_year = result.payback_years.p50
+    assert traj.p50[int(math.ceil(payback_year))] >= 0
+    assert traj.p50[int(math.floor(payback_year))] <= 0
+
+
+def test_trajectory_median_endpoint_matches_npv_median():
+    """End of horizon — median cumulative discounted cash flow must
+    equal the median NPV by construction (same algebra: -capex plus
+    sum of discounted net cash flows). Tolerance accounts for the
+    fact that column-wise medians and row-wise NPV medians can pick
+    different simulation paths under non-zero variance."""
+    request = _zero_dist_request(n_simulations=50)
+    result = mc.run_monte_carlo(request)
+    traj = result.cumulative_cash_flow_trajectory
+    # Under zero variance, every row of the cumulative matrix is
+    # identical, so column-wise and row-wise medians coincide exactly.
+    assert math.isclose(traj.p50[-1], result.npv_egp.p50, rel_tol=1e-6)
+
+
+def test_trajectory_widens_under_non_zero_variance():
+    """The interquartile spread at the end of the horizon must be
+    materially larger than at year 0 — uncertainty propagates and
+    accumulates over the analysis period."""
+    result = mc.run_monte_carlo(
+        MonteCarloRequest(
+            system_kw=5.0, annual_kwh=8000.0, tariff_egp_per_kwh=2.0,
+            n_simulations=600, random_seed=99,
+        )
+    )
+    traj = result.cumulative_cash_flow_trajectory
+    iqr_year_0 = traj.p75[0] - traj.p25[0]
+    iqr_horizon = traj.p75[-1] - traj.p25[-1]
+    assert iqr_horizon > iqr_year_0
+    assert iqr_horizon > 1000.0  # EGP — defensible at default Egypt spreads

@@ -4,6 +4,8 @@ import { Card } from '@/components/ui/Card';
 import { MetricCard } from '@/components/ui/MetricCard';
 import { MonthlyProductionChart } from '@/components/charts/MonthlyProductionChart';
 import { ModelComparisonView } from '@/components/charts/ModelComparisonView';
+import { MonteCarloHistogram } from '@/components/charts/MonteCarloHistogram';
+import { ROIFanChart } from '@/components/charts/ROIFanChart';
 import { useDashboardEstimate } from '@/hooks/useDashboardEstimate';
 import type { Location, RoofPolygon } from '@/types/api';
 
@@ -256,6 +258,29 @@ export function Dashboard({ location, roof }: DashboardProps) {
           <MonthlyProductionChart
             pvlibMonthlyKwh={data.energy.monthly_kwh}
             manualMonthlyKwh={data.energy_manual.monthly_kwh}
+          />
+        </section>
+      )}
+
+      {data && (
+        <section
+          aria-label="Monte Carlo uncertainty analysis"
+          className="space-y-6"
+          data-testid="monte-carlo-section"
+        >
+          <MonteCarloHistogram
+            histogram={data.monte_carlo.payback_histogram}
+            percentiles={data.monte_carlo.payback_years}
+            paybackProbability={data.monte_carlo.payback_probability}
+            nSimulations={data.monte_carlo.n_simulations}
+          />
+          <ROIFanChart
+            trajectory={data.monte_carlo.cumulative_cash_flow_trajectory}
+            medianPaybackYear={
+              Number.isFinite(data.monte_carlo.payback_years.p50)
+                ? data.monte_carlo.payback_years.p50
+                : null
+            }
           />
         </section>
       )}

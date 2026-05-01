@@ -57,6 +57,7 @@ import numpy as np
 
 from app.config import settings
 from app.schemas.monte_carlo import (
+    CumulativeCashFlowTrajectory,
     Distribution,
     HistogramBins,
     MonteCarloPercentiles,
@@ -232,6 +233,7 @@ class _SimulationArrays:
     lifetime_savings_egp: np.ndarray  # (N,)
     paid_back_mask: np.ndarray  # (N,) bool
     capex_samples: np.ndarray  # (N,) — for diagnostics
+    cumulative_discounted: np.ndarray  # (N, T+1) — fan-chart input
 
 
 def _simulate(
@@ -326,10 +328,12 @@ def _simulate(
 
     lifetime_savings = np.sum(savings_mat, axis=1)
 
-    payback_years, paid_back_mask = _vectorised_discounted_payback(
-        capex=capex,
-        discounted_net=discounted_net,
-        analysis_years=t,
+    payback_years, paid_back_mask, cumulative_discounted = (
+        _vectorised_discounted_payback(
+            capex=capex,
+            discounted_net=discounted_net,
+            analysis_years=t,
+        )
     )
 
     return _SimulationArrays(
@@ -339,12 +343,13 @@ def _simulate(
         lifetime_savings_egp=lifetime_savings,
         paid_back_mask=paid_back_mask,
         capex_samples=capex,
+        cumulative_discounted=cumulative_discounted,
     )
 
 
 def _vectorised_discounted_payback(
     *, capex: np.ndarray, discounted_net: np.ndarray, analysis_years: int
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Vectorised linear-interpolated discounted payback.
 
     Builds the ``(N, T+1)`` discounted cumulative cash-flow matrix
@@ -354,7 +359,9 @@ def _vectorised_discounted_payback(
     :func:`financial_basic._interpolated_payback`. Simulations that
     never reach break-even within the horizon are flagged in
     ``paid_back_mask`` and emit ``np.inf`` so downstream percentile
-    aggregation can filter them out cleanly.
+    aggregation can filter them out cleanly. The cumulative matrix is
+    returned alongside so the Day-16 fan chart can derive percentile
+    bands without re-running the algebra.
     """
     n = discounted_net.shape[0]
     cum = np.empty((n, analysis_years + 1))
@@ -376,7 +383,35 @@ def _vectorised_discounted_payback(
     fraction = np.where(denom != 0, -prev_year_cum / safe_denom, 0.0)
     payback = (year_of_first_pos - 1) + fraction
     payback = np.where(paid_back, payback, np.inf)
-    return payback, paid_back
+    return payback, paid_back, cum
+
+
+def _trajectory_from_cumulative(
+    cumulative: np.ndarray,
+) -> CumulativeCashFlowTrajectory:
+    """Aggregate a ``(N, T+1)`` cumulative-cash-flow matrix into a
+    percentile-band trajectory.
+
+    Percentiles are taken column-wise — at each year independently —
+    so the resulting bands are *envelope* percentiles, not the
+    trajectory of any single simulation. This is the correct framing
+    for an uncertainty fan chart: the user sees, at each year, where
+    the middle 50 / 90 % of futures lie, regardless of which futures
+    they are. Mixing simulation identity across years would imply a
+    causal coupling the model does not posit.
+    """
+    n_years_plus_one = cumulative.shape[1]
+    pcts = np.percentile(cumulative, [5.0, 25.0, 50.0, 75.0, 95.0], axis=0)
+    mean_traj = np.mean(cumulative, axis=0)
+    return CumulativeCashFlowTrajectory(
+        year_index=list(range(n_years_plus_one)),
+        p05=pcts[0].tolist(),
+        p25=pcts[1].tolist(),
+        p50=pcts[2].tolist(),
+        p75=pcts[3].tolist(),
+        p95=pcts[4].tolist(),
+        mean=mean_traj.tolist(),
+    )
 
 
 # ───────────────────── Aggregation / output mapping ─────────────────
@@ -494,6 +529,9 @@ def run_monte_carlo(request: MonteCarloRequest) -> MonteCarloResult:
         positive_npv_probability=npv_prob,
         payback_histogram=_histogram(sim.payback_years, exclude_inf=True),
         npv_histogram=_histogram(sim.npv_egp),
+        cumulative_cash_flow_trajectory=_trajectory_from_cumulative(
+            sim.cumulative_discounted
+        ),
         system_kw=request.system_kw,
         annual_kwh=request.annual_kwh,
         tariff_egp_per_kwh=request.tariff_egp_per_kwh,
