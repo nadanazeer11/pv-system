@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { PrimaryButton } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { MetricCard } from '@/components/ui/MetricCard';
+import { MonthlyProductionChart } from '@/components/charts/MonthlyProductionChart';
+import { ModelComparisonView } from '@/components/charts/ModelComparisonView';
 import { useDashboardEstimate } from '@/hooks/useDashboardEstimate';
 import type { Location, RoofPolygon } from '@/types/api';
 
@@ -243,6 +245,20 @@ export function Dashboard({ location, roof }: DashboardProps) {
           highlight
         />
       </div>
+
+      {data && (
+        <section
+          aria-label="Energy model comparison"
+          className="space-y-6"
+          data-testid="model-comparison-section"
+        >
+          <ModelComparisonView pvlib={data.energy} manual={data.energy_manual} />
+          <MonthlyProductionChart
+            pvlibMonthlyKwh={data.energy.monthly_kwh}
+            manualMonthlyKwh={data.energy_manual.monthly_kwh}
+          />
+        </section>
+      )}
     </div>
   );
 }

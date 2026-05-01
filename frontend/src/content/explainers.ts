@@ -148,6 +148,97 @@ export const explainers: Record<string, Explainer> = {
       { label: 'PLAN.md — Contribution B (Egypt Tiered Tariff)' },
     ],
   },
+  'energy-manual': {
+    id: 'energy-manual',
+    title: 'How does our physics model work?',
+    plainEnglish: [
+      "Alongside the industry-standard tool, we wrote a second simulation from scratch — one that walks through the physics step by step rather than calling a black box.",
+      "It uses the same hourly weather record, then for every hour figures out how the sun sits in the sky, how much of that sunlight hits a tilted panel facing south, how warm the panel runs in the Cairo heat (hot panels lose efficiency), and finally how much electricity comes out after the wiring and inverter take their cut.",
+      "Building it ourselves is the academic point. If two simulations written from completely different starting points land on the same yearly number, the result is trustworthy — and any disagreement tells us exactly how much honest uncertainty sits behind the headline.",
+    ],
+    math: [
+      'sun_position(latitude, longitude, hour)  →  zenith, azimuth',
+      'POA = beam·cos(angle_of_incidence) + diffuse·sky_view + ground_reflected',
+      'cell_temp = ambient_temp + (NOCT − 20)/800 · POA',
+      'DC_power = system_kW · POA/1000 · (1 + γ·(cell_temp − 25)) · (1 − DC_losses)',
+      'AC_power = DC_power · inverter_efficiency',
+      'annual_kWh = Σ AC_power × 1 hour',
+    ],
+    variables: [
+      { label: 'Sun-position model', value: 'NREL Solar Position Algorithm (SPA)' },
+      { label: 'Diffuse / albedo split', value: 'Hay–Davies transposition' },
+      { label: 'Temperature coefficient', value: '−0.4%/°C (mono-Si standard)' },
+      { label: 'NOCT (default)', value: '45 °C' },
+      { label: 'DC-side losses (default)', value: '14% (PVWatts canonical)' },
+      { label: 'Inverter efficiency (default)', value: '96%' },
+    ],
+    sources: [
+      {
+        label: 'NREL Solar Position Algorithm (SPA) — Reda & Andreas 2008',
+        href: 'https://www.nrel.gov/docs/fy08osti/34302.pdf',
+      },
+      {
+        label: 'PVWatts Version 5 Manual — Dobos 2014 (NREL/TP-6A20-62641)',
+        href: 'https://www.nrel.gov/docs/fy14osti/62641.pdf',
+      },
+      { label: 'Methodology — Manual physics model (research/methodology.md)' },
+    ],
+  },
+  'model-comparison': {
+    id: 'model-comparison',
+    title: 'Why two energy models?',
+    plainEnglish: [
+      'Most solar calculators run a single black-box simulation, print one number, and move on. We run two: a widely used industry tool and a fresh-from-physics model we wrote ourselves. Both consume the same hourly weather record for your spot, and both are aimed at the same answer: how many kilowatt-hours per year will this system produce?',
+      'When two simulations written from totally different starting points agree, the headline number is trustworthy. When they disagree, the size of the gap is itself a useful piece of information — it tells the homeowner (and a thesis examiner) how much honest model uncertainty sits behind the dashboard.',
+      'A residual under 5% is "strong agreement", 5–10% is "reasonable", and anything above 10% is a flag to investigate the inputs before reporting any payback number to a homeowner.',
+    ],
+    math: [
+      'residual_kWh   = annual_manual − annual_pvlib',
+      'residual_pct   = residual_kWh ÷ annual_pvlib',
+      'agreement = strong   if |residual_pct| < 5%',
+      '            reasonable if 5% ≤ |residual_pct| < 10%',
+      '            divergent  otherwise',
+    ],
+    variables: [
+      { label: 'Reference model', value: 'pvlib PVWatts chain' },
+      { label: 'Independent model', value: 'manual physics chain (POA + cell-temp + DC→AC)' },
+      { label: 'Strong-agreement threshold', value: '|Δ| < 5% (matches pvlib-vs-PVSyst documented band)' },
+    ],
+    sources: [
+      {
+        label: 'pvlib-python validation against PVSyst',
+        href: 'https://pvlib-python.readthedocs.io/en/stable/user_guide/index.html',
+      },
+      { label: 'Methodology — Dual-model cross-validation (research/methodology.md)' },
+      { label: 'PLAN.md — Core Academic Contributions: Dual Energy Model' },
+    ],
+  },
+  'monthly-production': {
+    id: 'monthly-production',
+    title: 'What does the monthly production chart show?',
+    plainEnglish: [
+      'Each pair of bars is one calendar month. The dark bar is what the industry-standard model expects your panels to deliver that month; the green bar is what our independent physics model expects. Both numbers are kilowatt-hours of usable AC electricity (post-inverter) — the same units that show up on your bill.',
+      'Cairo gets its highest production in May–August, when the sun stays high in the sky for longer; December and January are the leanest months. Any reasonable simulation has to reproduce that seasonal hump, so the chart doubles as a sanity check.',
+      'Reading the gap between bars in any given month gives a finer-grained version of the annual residual: if a single month disagrees by a lot, that points at a season-specific input (winter diffuse fraction, summer cell-temperature derate) rather than a systematic offset.',
+    ],
+    math: [
+      'monthly_kWh[m]  = group_by_month(hourly_AC, m)        for m = 1 … 12',
+      'monthly_residual[m]  = manual.monthly_kWh[m] − pvlib.monthly_kWh[m]',
+    ],
+    variables: [
+      { label: 'Months in chart', value: 'Jan, Feb, …, Dec' },
+      { label: 'Series 1 (dark)', value: 'pvlib (industry-standard PVWatts)' },
+      { label: 'Series 2 (lime)', value: 'manual physics model' },
+      { label: 'Units', value: 'kWh of AC energy delivered to the grid' },
+    ],
+    sources: [
+      {
+        label: 'PVGIS — Typical Meteorological Year (data source)',
+        href: 'https://re.jrc.ec.europa.eu/pvg_tools/en/',
+      },
+      { label: 'Methodology — Energy modelling (research/methodology.md)' },
+    ],
+  },
   'payback-ci': {
     id: 'payback-ci',
     title: 'What does "± 1.5 years" actually mean?',
