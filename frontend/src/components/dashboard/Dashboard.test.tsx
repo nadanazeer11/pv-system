@@ -64,16 +64,53 @@ const ENERGY_MANUAL_RESULT = {
   system_losses_fraction: 0.14,
 };
 
+function billMonth(consumption: number) {
+  // Mirror of the EgyptERA marginal-tier kernel so the dashboard test
+  // exercises the tier-bracket chart with realistic per-tier numbers
+  // without round-tripping through the backend.
+  const uppers = [50, 100, 200, 350, 650, 1000, 1.0e9];
+  const prices = [0.58, 0.68, 0.83, 1.25, 1.40, 1.45, 1.55];
+  const per_tier_kwh = prices.map(() => 0);
+  const per_tier_egp = prices.map(() => 0);
+  let remaining = consumption;
+  let prev = 0;
+  let highest = 0;
+  prices.forEach((price, i) => {
+    if (remaining <= 0) return;
+    const cap = uppers[i] - prev;
+    const inBand = Math.min(remaining, cap);
+    per_tier_kwh[i] = inBand;
+    per_tier_egp[i] = inBand * price;
+    remaining -= inBand;
+    prev = uppers[i];
+    if (inBand > 0) highest = i;
+  });
+  const bill_egp = per_tier_egp.reduce((acc, v) => acc + v, 0);
+  return {
+    consumption_kwh: consumption,
+    bill_egp,
+    per_tier_kwh,
+    per_tier_egp,
+    marginal_tariff_egp_per_kwh: consumption === 0 ? prices[0] : prices[highest],
+  };
+}
+
 const TARIFF_RESULT = {
-  bill_before_egp: 4200,
-  bill_after_egp: 800,
-  annual_savings_egp: 3400,
+  bill_before_egp: 12 * billMonth(500).bill_egp,
+  bill_after_egp: 12 * billMonth(150).bill_egp,
+  annual_savings_egp: 12 * (billMonth(500).bill_egp - billMonth(150).bill_egp),
   self_consumed_kwh: 4200,
   exported_kwh: 40800,
   export_credit_egp: 0,
   average_savings_egp_per_kwh: 0.81,
-  monthly_bill_before: [],
-  monthly_bill_after: [],
+  monthly_bill_before: Array.from({ length: 12 }, (_, m) => ({
+    month_index: m + 1,
+    ...billMonth(500),
+  })),
+  monthly_bill_after: Array.from({ length: 12 }, (_, m) => ({
+    month_index: m + 1,
+    ...billMonth(150),
+  })),
 };
 
 const MONTE_CARLO_RESULT = {
@@ -217,6 +254,8 @@ describe('Dashboard', () => {
     expect(screen.queryByTestId('model-comparison-section')).not.toBeInTheDocument();
     // Day-16 monte-carlo section is also hidden in the placeholder state.
     expect(screen.queryByTestId('monte-carlo-section')).not.toBeInTheDocument();
+    // Day-17 tier-bracket section is also hidden until an estimate runs.
+    expect(screen.queryByTestId('tier-bracket-section')).not.toBeInTheDocument();
   });
 
   it('disables the submit button until a location is supplied', () => {
@@ -254,7 +293,11 @@ describe('Dashboard', () => {
     // comparison panel — the latter is Day 15's new surface, so we
     // assert on multiplicity rather than uniqueness.
     expect(screen.getAllByText('45,000').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('3,400')).toBeInTheDocument(); // EGP/yr savings
+    // Annual savings: 12 × (543.5 − 104.5) = 5,268 EGP under the
+    // EgyptERA marginal-tier schedule used in the test fixture. The
+    // number appears both on the headline savings card and inside the
+    // Day-17 tier-bracket chart caption, so we assert on multiplicity.
+    expect(screen.getAllByText('5,268').length).toBeGreaterThanOrEqual(1); // EGP/yr savings
     expect(screen.getByText('7.2')).toBeInTheDocument(); // payback p50
     // Half-width = (9.4 - 5.6) / 2 = 1.9
     expect(screen.getByText(/± 1\.9 yr/)).toBeInTheDocument();
@@ -280,6 +323,17 @@ describe('Dashboard', () => {
     expect(screen.getByText(/cumulative return — uncertainty fan/i)).toBeInTheDocument();
     // Reference label on the fan chart anchors the median payback year.
     expect(screen.getByText(/median payback ≈ year 7\.2/i)).toBeInTheDocument();
+
+    // Day-17 tier-bracket section is mounted with its own card title
+    // and KnowMore explainer. Annual-savings caption mirrors the
+    // headline number computed from the EgyptERA-marginal fixture.
+    expect(screen.getByTestId('tier-bracket-section')).toBeInTheDocument();
+    expect(
+      screen.getByText(/tier-bracket savings — before vs after/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/annual savings ≈ 5,268 egp/i),
+    ).toBeInTheDocument();
 
     // Day-15: five calls total (sizing, then pvlib + manual in parallel,
     // then tariff, then monte-carlo). pvlib and manual may arrive in
@@ -344,6 +398,8 @@ describe('Dashboard', () => {
     expect(screen.queryByTestId('model-comparison-section')).not.toBeInTheDocument();
     // Day-16 monte-carlo section is also gated on a successful chain.
     expect(screen.queryByTestId('monte-carlo-section')).not.toBeInTheDocument();
+    // Day-17 tier-bracket section is also gated on a successful chain.
+    expect(screen.queryByTestId('tier-bracket-section')).not.toBeInTheDocument();
   });
 
   it('lets the user override the pre-filled roof area', () => {

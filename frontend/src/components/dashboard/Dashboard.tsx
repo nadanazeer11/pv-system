@@ -6,8 +6,28 @@ import { MonthlyProductionChart } from '@/components/charts/MonthlyProductionCha
 import { ModelComparisonView } from '@/components/charts/ModelComparisonView';
 import { MonteCarloHistogram } from '@/components/charts/MonteCarloHistogram';
 import { ROIFanChart } from '@/components/charts/ROIFanChart';
+import { TierBracketChart } from '@/components/charts/TierBracketChart';
 import { useDashboardEstimate } from '@/hooks/useDashboardEstimate';
 import type { Location, RoofPolygon } from '@/types/api';
+
+/**
+ * Plain-English tier labels for the EgyptERA residential schedule
+ * (post-July 2023 reform). Mirrors
+ * ``backend/app/config.py::EGYPT_RESIDENTIAL_TARIFF_TIERS`` so that the
+ * tier-bracket chart can render readable annotations without round-
+ * tripping the schedule through the wire. When the backend gains a
+ * tariff-schedule endpoint we will switch to the live source — for now
+ * the schedule is constant within an EgyptERA reform cycle.
+ */
+const EGYPT_TARIFF_TIER_LABELS = [
+  '0–50 kWh @ 0.58',
+  '50–100 kWh @ 0.68',
+  '100–200 kWh @ 0.83',
+  '200–350 kWh @ 1.25',
+  '350–650 kWh @ 1.40',
+  '650–1,000 kWh @ 1.45',
+  '> 1,000 kWh @ 1.55',
+];
 
 type DashboardProps = {
   /** Latest location chosen via the upstream LocationPicker. */
@@ -281,6 +301,20 @@ export function Dashboard({ location, roof }: DashboardProps) {
                 ? data.monte_carlo.payback_years.p50
                 : null
             }
+          />
+        </section>
+      )}
+
+      {data && (
+        <section
+          aria-label="Tier-bracket savings"
+          className="space-y-6"
+          data-testid="tier-bracket-section"
+        >
+          <TierBracketChart
+            monthlyBillBefore={data.tariff.monthly_bill_before}
+            monthlyBillAfter={data.tariff.monthly_bill_after}
+            tierLabels={EGYPT_TARIFF_TIER_LABELS}
           />
         </section>
       )}
