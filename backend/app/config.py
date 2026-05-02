@@ -120,6 +120,67 @@ class Settings(BaseSettings):
     egypt_grid_emission_kg_per_kwh: float = 0.46
     installed_cost_egp_per_kw: float = 35000.0
 
+    # CO₂ user-friendly equivalences (Day 18) ─────────────────────────
+    # The thesis dashboard reports lifetime CO₂ avoided in raw kg, but a
+    # homeowner cannot picture 50 000 kg of CO₂. The three equivalents
+    # below are the ones the US EPA Greenhouse Gas Equivalencies
+    # Calculator publishes as the "translate kg-CO₂ into something the
+    # public can picture" defaults; using them makes the dashboard's
+    # CO₂ card directly comparable to other consumer-facing climate
+    # tools and to the figures cited in popular Egyptian press
+    # coverage of rooftop PV.
+    #
+    # All three values are deliberately *factors* rather than per-year
+    # rates so the CO₂ service can apply them to a *lifetime* CO₂ total
+    # without coupling to the analysis horizon. The "trees" equivalent
+    # is the EPA's "carbon sequestered annually by 1 acre of average
+    # US forest" ÷ "trees/acre" derivation, expressed per-tree-per-year;
+    # the CO₂ service multiplies by the analysis-period years to give
+    # a horizon-matched headline ("the lifetime CO₂ this system avoids
+    # equals what N trees would absorb over the same horizon").
+    #
+    # Sources (US EPA Greenhouse Gas Equivalencies Calculator,
+    # "Calculations and References" page, 2024 edition):
+    #   * Passenger car: 0.404 kg CO₂/mi ≈ 0.251 kg/km (US LDV fleet
+    #     average, EPA 2022 MOVES3 model).
+    #   * Petrol (gasoline): 8.887 × 10⁻³ tCO₂/gal ≈ 2.347 kg/L
+    #     (EPA emission factor, combustion only — well-to-wheel would
+    #     add ~25 % from upstream fuel production but is excluded for
+    #     comparability with EPA's equivalency calculator).
+    #   * Urban tree, 10-year average sequestration ≈ 21.77 kg CO₂/yr/tree
+    #     (EPA derivation from McPherson urban-forest carbon-sequestration
+    #     studies; rounded to 22 kg/yr in the calculator's headline).
+    co2_kg_per_passenger_car_km: float = 0.251
+    co2_kg_per_petrol_litre: float = 2.347
+    co2_kg_per_tree_grown_year: float = 22.0
+
+    # Sensitivity tornado (Day 18) ────────────────────────────────────
+    # Default low / high swing ranges for the one-at-a-time tornado.
+    # Each pair is the published (or literature-anchored) reasonable
+    # range over which the parameter is plausibly uncertain — typically
+    # the 10th / 90th percentile of the corresponding Monte Carlo prior.
+    # Surfacing them here keeps the tornado deterministic and lets a
+    # methodology-aware user reproduce or override any single range
+    # without rebuilding the whole engine. The two synthetic ranges
+    # (annual_kwh, tariff_egp_per_kwh) have no Monte Carlo equivalent
+    # because the kernel treats them as deterministic *baseline* inputs;
+    # their swing here is a *forecasting* uncertainty, not a stochastic
+    # one. Cited:
+    #   * yield: ±10 % spans the inter-annual irradiance + soiling band
+    #     reported in Egyptian PV field studies (Mahmoud & El-Nokali 2023);
+    #   * tariff: ±20 % spans the EgyptERA-effective-rate spread between
+    #     a 200-kWh/mo and 600-kWh/mo household under the 2023 schedule;
+    #   * cost / discount / inflation / degradation / O&M ranges mirror
+    #     the corresponding monte_carlo_* ranges so the tornado and the
+    #     Monte Carlo engine cite the same priors.
+    sensitivity_yield_factor_range: tuple[float, float] = (0.90, 1.10)
+    sensitivity_tariff_factor_range: tuple[float, float] = (0.80, 1.20)
+    sensitivity_cost_egp_per_kw_range: tuple[float, float] = (30000.0, 45000.0)
+    sensitivity_discount_rate_range: tuple[float, float] = (0.02, 0.08)
+    sensitivity_tariff_inflation_range: tuple[float, float] = (0.05, 0.11)
+    sensitivity_degradation_rate_range: tuple[float, float] = (0.002, 0.010)
+    sensitivity_om_cost_fraction_range: tuple[float, float] = (0.005, 0.020)
+
     # Financial defaults
     # Analysis horizon: matches the standard PV module performance warranty
     # (25 years) and the analysis period adopted in most Egyptian PV
