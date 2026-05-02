@@ -299,6 +299,37 @@ export const explainers: Record<string, Explainer> = {
       { label: 'PLAN.md — Contribution C (Monte Carlo Uncertainty Analysis)' },
     ],
   },
+  'tier-bracket-savings': {
+    id: 'tier-bracket-savings',
+    title: 'How do I read the tier-bracket chart?',
+    plainEnglish: [
+      "Egypt charges residential electricity in steps. The first 50 units of the month are the cheapest, the next 50 a little more, and the highest steps cost almost three times the lowest. The chart paints your annual bill as a stack of those steps — bottom is the cheapest step, top is the priciest.",
+      "Solar power knocks down each month's consumption. Because the cheap steps are filled first, every unit your panels make subtracts from the *top* of the stack first. That is why the right-hand bar in the chart is so much shorter than the left: solar is shaving off the most expensive layers, even though it produces the same kilowatt-hour as one from the cheap layers.",
+      "If your household barely reaches the top step, the right-hand bar will look almost as tall as the left and your savings will be modest. If your monthly bill regularly hits the top step, solar pays back faster than a flat-tariff calculator would tell you — sometimes by a lot.",
+    ],
+    math: [
+      'monthly_bill = Σ_i (kWh_in_tier_i × price_i)',
+      'annual_bill = Σ_{m=1..12} monthly_bill_m',
+      'monthly_consumption_with_PV = max(0, consumption − generation)',
+      'savings_per_tier = (annual_bill_before_per_tier − annual_bill_after_per_tier)',
+      'top_tier_share = savings_per_tier[top] ÷ total_savings',
+    ],
+    variables: [
+      { label: 'Tier schedule', value: 'EgyptERA residential, post-July 2023' },
+      { label: 'Lowest tier', value: '0–50 kWh/month @ 0.58 EGP' },
+      { label: 'Top tier', value: '> 1,000 kWh/month @ 1.55 EGP' },
+      { label: 'Top-tier price ÷ lowest-tier price', value: '~2.7×' },
+      { label: 'Self-consumption first', value: 'Surplus generation defaults to zero export credit' },
+    ],
+    sources: [
+      {
+        label: 'EgyptERA published residential tariff schedule',
+        href: 'https://egyptera.org/',
+      },
+      { label: 'Methodology — Tiered tariff optimisation (research/methodology.md)' },
+      { label: 'PLAN.md — Contribution B (Egypt Tiered Tariff)' },
+    ],
+  },
   'payback-ci': {
     id: 'payback-ci',
     title: 'What does "± 1.5 years" actually mean?',
