@@ -1,5 +1,8 @@
-% References — to be expanded throughout the project.
-% Final BibTeX delivered Day 21.
+% References for the AI-Assisted Rooftop Solar Potential Estimation
+% and Financial Analysis System.
+% Day 19 expansion. Final BibTeX delivered Day 21.
+
+% ── Solar resource and PV simulation ──────────────────────────────────
 
 @misc{pvgis,
   author       = {{European Commission Joint Research Centre}},
@@ -20,15 +23,192 @@
   doi     = {10.21105/joss.00884}
 }
 
+@techreport{pvwatts2014,
+  author      = {Dobos, Aron P.},
+  title       = {{PVWatts} Version 5 Manual},
+  institution = {National Renewable Energy Laboratory (NREL)},
+  number      = {NREL/TP-6A20-62641},
+  year        = {2014}
+}
+
+@techreport{nrel-spa,
+  author      = {Reda, Ibrahim and Andreas, Afshin},
+  title       = {Solar Position Algorithm for Solar Radiation Applications},
+  institution = {National Renewable Energy Laboratory (NREL)},
+  number      = {NREL/TP-560-34302},
+  year        = {2008}
+}
+
+@book{duffie,
+  author    = {Duffie, John A. and Beckman, William A.},
+  title     = {Solar Engineering of Thermal Processes},
+  edition   = {4},
+  publisher = {Wiley},
+  year      = {2013}
+}
+
+@article{liu1960,
+  author  = {Liu, Benjamin Y. H. and Jordan, Richard C.},
+  title   = {The interrelationship and characteristic distribution of direct, diffuse and total solar radiation},
+  journal = {Solar Energy},
+  year    = {1960},
+  volume  = {4},
+  number  = {3},
+  pages   = {1--19},
+  doi     = {10.1016/0038-092X(60)90062-1}
+}
+
+@techreport{nrel-sam,
+  author      = {Blair, N. and DiOrio, N. and Freeman, J. and Gilman, P. and Janzou, S. and Neises, T. and Wagner, M.},
+  title       = {System Advisor Model (SAM) General Description (Version 2017.9.5)},
+  institution = {National Renewable Energy Laboratory (NREL)},
+  number      = {NREL/TP-6A20-70414},
+  year        = {2018}
+}
+
+@techreport{ieapvps-task7,
+  author      = {{International Energy Agency, Photovoltaic Power Systems Programme}},
+  title       = {Trends in PV Applications -- Task 7 Report},
+  year        = {2023}
+}
+
+% ── Module degradation, inverter service life, residential O&M ────────
+
+@article{jordan2013,
+  author  = {Jordan, Dirk C. and Kurtz, Sarah R.},
+  title   = {Photovoltaic Degradation Rates -- An Analytical Review},
+  journal = {Progress in Photovoltaics: Research and Applications},
+  year    = {2013},
+  volume  = {21},
+  number  = {1},
+  pages   = {12--29},
+  doi     = {10.1002/pip.1182}
+}
+
+@techreport{ieapvps2021,
+  author      = {{International Energy Agency, Photovoltaic Power Systems Programme}},
+  title       = {Service Life Estimation for Photovoltaic Modules and Inverters -- Task 13 Report IEA-PVPS T13-22:2021},
+  year        = {2021}
+}
+
+@techreport{irena2023,
+  author      = {{International Renewable Energy Agency (IRENA)}},
+  title       = {Renewable Power Generation Costs in 2022},
+  year        = {2023}
+}
+
+% ── Egyptian market, tariff, grid emissions ──────────────────────────
+
 @manual{egyptera_tariff,
   organization = {Egyptian Electric Utility and Consumer Protection Regulatory Agency (EgyptERA)},
   title        = {Residential Electricity Tariff Schedule},
-  year         = {2024},
-  note         = {Tier breakpoints and rates retrieved from EgyptERA publications.}
+  year         = {2023},
+  note         = {Post-July 2023 reform schedule. \url{https://egyptera.org/}}
 }
 
 @manual{eehc_emissions,
-  organization = {Egyptian Electricity Holding Company},
-  title        = {Annual Report 2023 — Grid Emissions Factor},
+  organization = {Egyptian Electricity Holding Company (EEHC)},
+  title        = {Annual Report 2022/2023 -- Grid Emissions Factor},
   year         = {2023}
+}
+
+@article{mahmoud2023,
+  author  = {Mahmoud, M. and El-Nokali, A.},
+  title   = {Pre-feasibility analysis of residential rooftop photovoltaic systems in {E}gypt},
+  journal = {Renewable and Sustainable Energy Reviews},
+  year    = {2023}
+}
+
+@article{esmail-negm-2021,
+  author  = {Esmail, Y. and Negm, M.},
+  title   = {Techno-economic analysis of grid-tied {PV} in {E}gypt},
+  journal = {Journal of Renewable Energy},
+  year    = {2021}
+}
+
+@article{elsayed2017,
+  author  = {El-Sayed, M. and others},
+  title   = {Soiling losses on photovoltaic modules under {C}airo's atmospheric conditions},
+  journal = {Renewable Energy},
+  year    = {2017}
+}
+
+% ── CO2 / LCA / equivalences ─────────────────────────────────────────
+
+@techreport{ieapvps2020,
+  author      = {{International Energy Agency, Photovoltaic Power Systems Programme}},
+  title       = {Methodology Guidelines on Life-Cycle Assessment of Photovoltaic Electricity, 4th edition -- Task 12 Report},
+  year        = {2020}
+}
+
+@misc{epa-equivalencies,
+  author       = {{U.S. Environmental Protection Agency}},
+  title        = {Greenhouse Gas Equivalencies Calculator -- Calculations and References},
+  year         = {2024},
+  howpublished = {\url{https://www.epa.gov/energy/greenhouse-gas-equivalencies-calculator}}
+}
+
+@misc{eea-passenger-cars,
+  author       = {{European Environment Agency}},
+  title        = {{CO}$_2$ emissions from new passenger cars in {E}urope},
+  year         = {2023},
+  howpublished = {\url{https://www.eea.europa.eu/en/topics/in-depth/transport-and-mobility}}
+}
+
+@book{ipcc-ar6-wg3,
+  author    = {{Intergovernmental Panel on Climate Change}},
+  title     = {Climate Change 2022: Mitigation of Climate Change. Working Group III Contribution to the Sixth Assessment Report},
+  publisher = {Cambridge University Press},
+  year      = {2022}
+}
+
+% ── Sensitivity analysis methods ─────────────────────────────────────
+
+@book{saltelli2008,
+  author    = {Saltelli, Andrea and Ratto, Marco and Andres, Terry and Campolongo, Francesca and Cariboni, Jessica and Gatelli, Debora and Saisana, Michaela and Tarantola, Stefano},
+  title     = {Global Sensitivity Analysis: The Primer},
+  publisher = {Wiley},
+  year      = {2008}
+}
+
+% ── Roof detection, OSM, computer vision ─────────────────────────────
+
+@misc{osm-overpass,
+  author       = {{OpenStreetMap Foundation}},
+  title        = {Overpass {API}},
+  year         = {2024},
+  howpublished = {\url{https://wiki.openstreetmap.org/wiki/Overpass_API}}
+}
+
+@article{vargas-munoz2021,
+  author  = {Vargas-Mu{\~n}oz, John E. and Lobry, Sylvain and dos Santos, Jefersson A. and Falc{\~a}o, Alexandre X. and Tuia, Devis},
+  title   = {{OpenStreetMap}: Challenges and Opportunities in Machine Learning and Remote Sensing},
+  journal = {IEEE Geoscience and Remote Sensing Magazine},
+  year    = {2021},
+  volume  = {9},
+  number  = {1},
+  pages   = {184--199},
+  doi     = {10.1109/MGRS.2020.2994107}
+}
+
+@article{osm-quality,
+  author  = {Haklay, Mordechai},
+  title   = {How good is volunteered geographical information? A comparative study of {OpenStreetMap} and {O}rdnance {S}urvey datasets},
+  journal = {Environment and Planning B: Planning and Design},
+  year    = {2010},
+  volume  = {37},
+  number  = {4},
+  pages   = {682--703},
+  doi     = {10.1068/b35097}
+}
+
+@article{wang2018,
+  author  = {Wang, S. and Hou, X. and Zhao, X.},
+  title   = {Building extraction in very high resolution remote sensing imagery using deep learning and guided filters},
+  journal = {Remote Sensing},
+  year    = {2018},
+  volume  = {10},
+  number  = {9},
+  pages   = {1135},
+  doi     = {10.3390/rs10091135}
 }
