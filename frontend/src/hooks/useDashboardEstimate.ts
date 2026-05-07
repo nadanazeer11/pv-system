@@ -21,6 +21,13 @@ export type DashboardEstimateInput = {
   monthly_consumption_kwh: number;
   /** Random seed forwarded to the Monte Carlo engine for reproducibility. */
   random_seed?: number;
+  /**
+   * Override the backend's default roof utilization factor. Set to 0.85
+   * when the user has explicitly marked obstacles via the annotation tool
+   * (obstacles are already subtracted from roof_area_m2, so the factor
+   * only needs to cover setbacks and inter-row spacing).
+   */
+  roof_utilization_factor?: number;
 };
 
 export type DashboardEstimateResult = {
@@ -63,7 +70,12 @@ export function useDashboardEstimate() {
     mutationFn: async (input) => {
       const sizing = await request<SizingResult>('/api/sizing', {
         method: 'POST',
-        body: { roof_area_m2: input.roof_area_m2 },
+        body: {
+          roof_area_m2: input.roof_area_m2,
+          ...(input.roof_utilization_factor !== undefined && {
+            roof_utilization_factor: input.roof_utilization_factor,
+          }),
+        },
       });
 
       // The two energy models share inputs (location + system_kw) and do

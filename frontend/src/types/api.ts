@@ -9,6 +9,22 @@
  * step is reproducible in CI).
  */
 
+// ── /api/roof/annotate — backend/app/schemas/obstacle_annotation.py ────
+
+export type ObstacleAnnotationRequest = {
+  roof_polygon_px: Array<[number, number]>;
+  obstacle_polygons_px: Array<Array<[number, number]>>;
+  known_area_m2: number;
+};
+
+export type ObstacleAnnotationResult = {
+  roof_area_m2: number;
+  obstacle_area_m2: number;
+  net_area_m2: number;
+  obstacle_fraction: number;
+  obstacle_count: number;
+};
+
 // ── /api/sizing — backend/app/schemas/sizing.py ─────────────────────────
 
 export type SizingRequest = {

@@ -112,6 +112,10 @@ class Settings(BaseSettings):
     panel_rated_watts: float = 450.0
     panel_area_m2: float = 1.8
     roof_utilization_factor: float = 0.7
+    # Reduced utilization factor used when the user has explicitly marked
+    # obstacles via the annotation tool — obstacles are already subtracted,
+    # so only setbacks, walkways, and inter-row spacing remain (~15 %).
+    roof_utilization_factor_annotated: float = 0.85
     inverter_efficiency: float = 0.96
 
     # Egypt-specific defaults

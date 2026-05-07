@@ -427,20 +427,21 @@ def _percentiles_from_array(
     percentile band. The fraction of such runs is reported separately
     via :pyattr:`MonteCarloResult.payback_probability`.
     """
-    finite = values[np.isfinite(values)] if exclude_inf else values
+    # Always strip nan; when exclude_inf is set also strip ±inf (payback sentinel).
+    finite = values[np.isfinite(values)] if exclude_inf else values[~np.isnan(values)]
     if finite.size == 0:
         return MonteCarloPercentiles(
-            mean=float("nan"),
+            mean=0.0,
             std=0.0,
-            p05=float("nan"),
-            p10=float("nan"),
-            p25=float("nan"),
-            p50=float("nan"),
-            p75=float("nan"),
-            p90=float("nan"),
-            p95=float("nan"),
-            minimum=float("nan"),
-            maximum=float("nan"),
+            p05=0.0,
+            p10=0.0,
+            p25=0.0,
+            p50=0.0,
+            p75=0.0,
+            p90=0.0,
+            p95=0.0,
+            minimum=0.0,
+            maximum=0.0,
         )
     pcts = np.percentile(finite, _PERCENTILES)
     return MonteCarloPercentiles(

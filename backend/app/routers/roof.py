@@ -1,6 +1,6 @@
-"""Roof detection endpoints (Days 10–11).
+"""Roof detection endpoints (Days 10–11) + obstacle annotation.
 
-Three endpoints sit behind ``/api/roof``:
+Four endpoints sit behind ``/api/roof``:
 
 * ``POST /api/roof/detect`` — vector-side detection only (OpenStreetMap
   Overpass + selection logic). Day 10.
@@ -9,15 +9,16 @@ Three endpoints sit behind ``/api/roof``:
   to draw the OSM polygon over the imagery. Day 10.
 * ``POST /api/roof/analyze`` — full pipeline: detect + satellite-tile
   fetch + CV polygon refinement + tilt and azimuth estimation. Day 11.
-
-The split is deliberate: ``/detect`` is cheap (one Overpass call), while
-``/analyze`` issues one Overpass call *and* one Google Maps Static
-download, then runs CPU-bound CV. Frontends that only need the polygon
-(e.g. a quick-preview map) use ``/detect``; the full estimator pipeline
-uses ``/analyze``.
+* ``POST /api/roof/annotate`` — accepts user-drawn roof boundary and
+  obstacle polygons (in image-pixel space) plus a known area and returns
+  the usable area after clipping and subtracting the obstacles.
 """
 from fastapi import APIRouter, HTTPException
 
+from app.schemas.obstacle_annotation import (
+    ObstacleAnnotationRequest,
+    ObstacleAnnotationResult,
+)
 from app.schemas.roof import (
     RoofAnalysisRequest,
     RoofDetectionRequest,
@@ -26,6 +27,7 @@ from app.schemas.roof import (
     SatelliteTileResult,
 )
 from app.services import gmaps_static, roof_detection
+from app.services.obstacle_annotation import AnnotationError, compute_usable_area
 
 router = APIRouter(prefix="/api/roof", tags=["roof"])
 
@@ -98,6 +100,25 @@ async def satellite_tile(request: SatelliteTileRequest) -> SatelliteTileResult:
         tile_width_m=float(metadata["tile_width_m"]),
         tile_height_m=float(metadata["tile_height_m"]),
     )
+
+
+@router.post("/annotate", response_model=ObstacleAnnotationResult)
+async def annotate_roof(request: ObstacleAnnotationRequest) -> ObstacleAnnotationResult:
+    """Compute usable roof area after subtracting user-marked obstacle polygons.
+
+    The image itself is never sent to the server — the browser renders it
+    locally for drawing reference. Only the polygon pixel coordinates and
+    the known real-world roof area travel over the wire.
+
+    Status codes
+    ------------
+    * 200 — computation succeeded.
+    * 422 — roof polygon has fewer than 3 vertices or zero area.
+    """
+    try:
+        return compute_usable_area(request)
+    except AnnotationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post("/analyze", response_model=RoofDetectionResult)
