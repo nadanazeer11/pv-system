@@ -49,3 +49,20 @@ def test_size_system_returns_422_for_too_small_roof():
 
     assert response.status_code == 422
     assert "smaller than a single panel" in response.json()["detail"]
+
+
+def test_size_system_with_inter_row_density_factor():
+    """End-to-end: the geometric-shading path is reachable from the
+    HTTP surface and produces a smaller system than the bulk default."""
+    bulk = client.post("/api/sizing", json={"roof_area_m2": 100.0}).json()
+    geom = client.post(
+        "/api/sizing",
+        json={"roof_area_m2": 100.0, "inter_row_density_factor": 0.45},
+    ).json()
+
+    assert geom["panel_count"] < bulk["panel_count"]
+    assert geom["roof_utilization_factor"] == round(0.85 * 0.45, 12) or abs(
+        geom["roof_utilization_factor"] - 0.85 * 0.45
+    ) < 1e-9
+    assert geom["inter_row_density_factor"] == 0.45
+    assert bulk["inter_row_density_factor"] is None

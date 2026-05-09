@@ -111,11 +111,37 @@ class Settings(BaseSettings):
     # PV hardware defaults
     panel_rated_watts: float = 450.0
     panel_area_m2: float = 1.8
+    # Slope-direction dimension of the panel — the long edge for the
+    # portrait-orientation mount that dominates Egyptian residential
+    # installations (typical 1.0 m × 1.8 m mono-Si module). This is the
+    # dimension that *casts* a shadow toward the next row; the short
+    # edge is along-row and contributes only to the row width, which is
+    # not what governs inter-row spacing.
+    panel_slope_height_m: float = 1.8
+    # Worst-case sun elevation used to size inter-row spacing. Cairo's
+    # December-solstice noon elevation is ~37°, but useful generation
+    # starts at ~9 am when elevation is ~22°. Using 22° as the design
+    # constraint guarantees that the row pitch is wide enough to keep
+    # productive morning hours unshaded — the standard residential PV
+    # rule of thumb (NREL "Best Practices in PV System Installation",
+    # 2021) and the value used in Egyptian rooftop pre-feasibility
+    # studies (Mahmoud & El-Nokali 2023).
+    design_sun_elevation_deg: float = 22.0
     roof_utilization_factor: float = 0.7
     # Reduced utilization factor used when the user has explicitly marked
     # obstacles via the annotation tool — obstacles are already subtracted,
     # so only setbacks, walkways, and inter-row spacing remain (~15 %).
     roof_utilization_factor_annotated: float = 0.85
+    # Utilization factor that *excludes* the inter-row shading component
+    # — used when the caller supplies an explicit `inter_row_density_factor`
+    # computed by the shading service so the inter-row loss is not
+    # double-counted. Covers only edge setbacks (~0.95), maintenance
+    # walkways (~0.92), and bulk obstructions (~0.97); product ≈ 0.85.
+    # When the obstacle annotation tool has *also* run, the obstruction
+    # component is already subtracted from the area, so the same 0.85
+    # value still applies (setbacks × walkways ≈ 0.87, rounded the same
+    # way the annotated factor is rounded).
+    roof_utilization_excl_inter_row: float = 0.85
     inverter_efficiency: float = 0.96
 
     # Egypt-specific defaults

@@ -11,6 +11,7 @@ from app.routers import (
     monte_carlo,
     roof,
     sensitivity,
+    shading,
     sizing,
     tariff,
     weather,
@@ -41,6 +42,7 @@ app.include_router(monte_carlo.router)
 app.include_router(roof.router)
 app.include_router(co2.router)
 app.include_router(sensitivity.router)
+app.include_router(shading.router)
 
 
 @app.get("/")

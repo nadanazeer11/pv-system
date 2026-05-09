@@ -101,3 +101,72 @@ def test_sizing_request_rejects_utilization_above_one():
 
     with pytest.raises(ValidationError):
         SizingRequest(roof_area_m2=100.0, roof_utilization_factor=1.5)
+
+
+# ── Geometric-shading mode (Day-19, deliverable A wired into pv_sizing) ──
+
+
+def test_inter_row_density_switches_to_geometric_utilization():
+    """Supplying inter_row_density_factor should swap the bulk 0.7 for
+    `roof_utilization_excl_inter_row × density`, applied to the roof area."""
+    result = pv_sizing.compute_system_size(
+        SizingRequest(roof_area_m2=100.0, inter_row_density_factor=0.45)
+    )
+
+    expected_util = settings.roof_utilization_excl_inter_row * 0.45
+    assert result.roof_utilization_factor == pytest.approx(expected_util)
+    assert result.usable_roof_area_m2 == pytest.approx(100.0 * expected_util)
+    assert result.inter_row_density_factor == pytest.approx(0.45)
+
+
+def test_inter_row_density_yields_smaller_system_than_bulk_default():
+    """For Egypt geometry the explicit inter-row formula (0.85 × 0.45 ≈
+    0.38) is more conservative than the bulk 0.7, so the panel count
+    must drop."""
+    bulk = pv_sizing.compute_system_size(SizingRequest(roof_area_m2=100.0))
+    geom = pv_sizing.compute_system_size(
+        SizingRequest(roof_area_m2=100.0, inter_row_density_factor=0.45)
+    )
+
+    assert geom.panel_count < bulk.panel_count
+    assert geom.system_kw < bulk.system_kw
+
+
+def test_explicit_utilization_overrides_inter_row_density():
+    """When the caller supplies BOTH an explicit utilization factor and
+    a density, the explicit factor wins (rule 1) and the density is
+    ignored for the math but echoed in the response."""
+    result = pv_sizing.compute_system_size(
+        SizingRequest(
+            roof_area_m2=100.0,
+            roof_utilization_factor=0.5,
+            inter_row_density_factor=0.45,
+        )
+    )
+
+    assert result.roof_utilization_factor == 0.5
+    assert result.usable_roof_area_m2 == pytest.approx(50.0)
+    # Density is still echoed so the response remains self-documenting
+    assert result.inter_row_density_factor == pytest.approx(0.45)
+
+
+def test_no_inter_row_density_keeps_existing_behaviour():
+    """The default path (no density supplied) must remain bit-for-bit
+    identical to Day-3 — guards against accidental regressions in
+    callers that have never heard of the geometric-shading mode."""
+    result = pv_sizing.compute_system_size(SizingRequest(roof_area_m2=100.0))
+
+    assert result.roof_utilization_factor == settings.roof_utilization_factor
+    assert result.panel_count == 38
+    assert result.system_kw == pytest.approx(17.1)
+    assert result.inter_row_density_factor is None
+
+
+def test_inter_row_density_request_validation():
+    """Density must lie in (0, 1] — same physical bounds as the bulk factor."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        SizingRequest(roof_area_m2=100.0, inter_row_density_factor=0)
+    with pytest.raises(ValidationError):
+        SizingRequest(roof_area_m2=100.0, inter_row_density_factor=1.5)

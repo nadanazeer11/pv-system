@@ -28,6 +28,20 @@ otherwise need explicit geometric modelling:
     walls, HVAC condensers — extremely common on Egyptian residential
     rooftops.
 
+Geometric-shading mode
+----------------------
+When the caller supplies an explicit ``inter_row_density_factor`` —
+typically computed by :mod:`app.services.shading` from the panel tilt,
+slope height and a worst-case sun elevation — the sizing kernel
+switches to::
+
+    util = roof_utilization_excl_inter_row × inter_row_density_factor
+
+so the inter-row loss is counted *exactly once* with the geometry the
+caller chose, and the bulk 0.7 (which bundles a generic inter-row
+assumption) is not double-discounted. An explicit
+``roof_utilization_factor`` on the request still overrides everything.
+
 Future work
 -----------
 Days 10–11 (roof_detection) will replace the bulk utilization factor
@@ -81,11 +95,27 @@ def compute_system_size(request: SizingRequest) -> SizingResult:
     """
     panel_w = request.panel_rated_watts or settings.panel_rated_watts
     panel_area = request.panel_area_m2 or settings.panel_area_m2
-    utilization = (
-        request.roof_utilization_factor
-        if request.roof_utilization_factor is not None
-        else settings.roof_utilization_factor
-    )
+
+    # Three precedence rules for the utilization factor — in order:
+    #   1. An explicit `roof_utilization_factor` on the request always
+    #      wins (caller knows what they're doing; overrides everything).
+    #   2. Otherwise, if the caller supplied an explicit
+    #      `inter_row_density_factor`, switch to the geometric-shading
+    #      formula:
+    #          util = roof_utilization_excl_inter_row × inter_row_density
+    #      so the inter-row loss is counted exactly once and the bulk
+    #      0.7 — which already bundles inter-row implicitly — is not
+    #      double-discounted.
+    #   3. Otherwise, fall back to the bulk default (0.7).
+    if request.roof_utilization_factor is not None:
+        utilization = request.roof_utilization_factor
+    elif request.inter_row_density_factor is not None:
+        utilization = (
+            settings.roof_utilization_excl_inter_row
+            * request.inter_row_density_factor
+        )
+    else:
+        utilization = settings.roof_utilization_factor
 
     usable_area = request.roof_area_m2 * utilization
 
@@ -107,5 +137,6 @@ def compute_system_size(request: SizingRequest) -> SizingResult:
         panel_rated_watts=panel_w,
         panel_area_m2=panel_area,
         roof_utilization_factor=utilization,
+        inter_row_density_factor=request.inter_row_density_factor,
         panel_density_w_per_m2=panel_density,
     )

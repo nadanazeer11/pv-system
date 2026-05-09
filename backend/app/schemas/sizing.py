@@ -41,6 +41,20 @@ class SizingRequest(BaseModel):
             "spacing (default: configured value)"
         ),
     )
+    inter_row_density_factor: float | None = Field(
+        None,
+        gt=0,
+        le=1,
+        description=(
+            "Optional explicit inter-row shading density (footprint / "
+            "row pitch) computed by /api/shading/inter-row. When supplied "
+            "and `roof_utilization_factor` is left at its default, the "
+            "sizing kernel switches to `roof_utilization_excl_inter_row × "
+            "inter_row_density_factor` so the inter-row loss is counted "
+            "exactly once. When `roof_utilization_factor` is supplied "
+            "explicitly the override wins and this field is ignored."
+        ),
+    )
 
 
 class SizingResult(BaseModel):
@@ -59,6 +73,14 @@ class SizingResult(BaseModel):
     panel_rated_watts: float = Field(..., description="Per-panel STC rating used in the calculation")
     panel_area_m2: float = Field(..., description="Per-panel area used in the calculation")
     roof_utilization_factor: float = Field(..., description="Utilization factor used in the calculation")
+    inter_row_density_factor: float | None = Field(
+        None,
+        description=(
+            "Echo of the inter-row density factor supplied by the caller. "
+            "Null when geometric shading was not applied — the inter-row "
+            "loss is then bundled inside `roof_utilization_factor`."
+        ),
+    )
     panel_density_w_per_m2: float = Field(
         ...,
         description="Effective system DC density (system watts per square metre of usable roof)",
