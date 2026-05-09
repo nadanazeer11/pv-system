@@ -45,6 +45,50 @@ export type SizingResult = {
   panel_density_w_per_m2: number;
 };
 
+// ── /api/load-sizing — backend/app/schemas/load_sizing.py ───────────────
+
+export type ApplianceEntry = {
+  name: string;
+  watts: number;
+  hours_per_day: number;
+  quantity: number;
+};
+
+export type ApplianceLibraryEntry = {
+  name: string;
+  watts: number;
+  typical_hours_per_day: number;
+  category: string;
+};
+
+export type LoadSizingRequest = {
+  appliances: ApplianceEntry[];
+  available_roof_area_m2?: number;
+  coverage_fraction?: number;
+  panel_rated_watts?: number;
+  panel_area_m2?: number;
+  roof_utilization_factor?: number;
+};
+
+export type LoadSizingResult = {
+  daily_load_kwh: number;
+  monthly_load_kwh: number;
+  annual_load_kwh: number;
+  peak_load_kw: number;
+  recommended_system_kw: number;
+  recommended_panel_count: number;
+  required_roof_area_m2: number;
+  coverage_fraction: number;
+  peak_sun_hours: number;
+  performance_ratio: number;
+  panel_rated_watts: number;
+  panel_area_m2: number;
+  roof_utilization_factor: number;
+  roof_fits: boolean | null;
+  available_roof_area_m2: number | null;
+  roof_area_shortfall_m2: number | null;
+};
+
 // ── shared — backend/app/schemas/inputs.py ──────────────────────────────
 
 export type Location = {

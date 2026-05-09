@@ -7,6 +7,7 @@ import { ModelComparisonView } from '@/components/charts/ModelComparisonView';
 import { MonteCarloHistogram } from '@/components/charts/MonteCarloHistogram';
 import { ROIFanChart } from '@/components/charts/ROIFanChart';
 import { TierBracketChart } from '@/components/charts/TierBracketChart';
+import { LoadSizingPanel } from '@/components/estimator/LoadSizingPanel';
 import { ObstacleAnnotationPanel } from '@/components/tools/ObstacleAnnotationPanel';
 import { useDashboardEstimate } from '@/hooks/useDashboardEstimate';
 import type { Location, RoofPolygon } from '@/types/api';
@@ -209,6 +210,23 @@ export function Dashboard({ location, roof }: DashboardProps) {
           </div>
         </form>
       </Card>
+
+      <LoadSizingPanel
+        availableRoofAreaM2={
+          Number.isFinite(parsedRoofArea) && parsedRoofArea > 0
+            ? parsedRoofArea
+            : null
+        }
+        onAcceptRecommendation={(suggestedRoofAreaM2) => {
+          setRoofAreaInput(String(Math.round(suggestedRoofAreaM2)));
+          setUserEditedArea(true);
+          const input = document.getElementById('dashboard-roof-area');
+          if (input) {
+            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            (input as HTMLInputElement).focus();
+          }
+        }}
+      />
 
       {/* No-OSM case: obstacle annotation is the primary area source */}
       {!roof && location && (
