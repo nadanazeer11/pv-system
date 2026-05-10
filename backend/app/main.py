@@ -7,6 +7,7 @@ from app.routers import (
     energy,
     financial,
     health,
+    load_sizing,
     monte_carlo,
     roof,
     sensitivity,
@@ -32,6 +33,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(weather.router)
 app.include_router(sizing.router)
+app.include_router(load_sizing.router)
 app.include_router(energy.router)
 app.include_router(financial.router)
 app.include_router(tariff.router)

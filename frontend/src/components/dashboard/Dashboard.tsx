@@ -7,6 +7,8 @@ import { ModelComparisonView } from '@/components/charts/ModelComparisonView';
 import { MonteCarloHistogram } from '@/components/charts/MonteCarloHistogram';
 import { ROIFanChart } from '@/components/charts/ROIFanChart';
 import { TierBracketChart } from '@/components/charts/TierBracketChart';
+import { LoadSizingPanel } from '@/components/estimator/LoadSizingPanel';
+import { ObstacleAnnotationPanel } from '@/components/tools/ObstacleAnnotationPanel';
 import { useDashboardEstimate } from '@/hooks/useDashboardEstimate';
 import type { Location, RoofPolygon } from '@/types/api';
 
@@ -77,6 +79,10 @@ export function Dashboard({ location, roof }: DashboardProps) {
     String(DEFAULT_MONTHLY_KWH),
   );
   const [userEditedArea, setUserEditedArea] = useState<boolean>(false);
+  // Set to true when the user has computed usable area via the annotation
+  // tool — triggers a reduced utilization factor in the sizing call.
+  const [annotationUsed, setAnnotationUsed] = useState<boolean>(false);
+  const [showAnnotation, setShowAnnotation] = useState<boolean>(false);
 
   // Auto-populate the area field whenever a fresh OSM detection lands —
   // but only if the user hasn't manually edited the input yet, so we
@@ -106,6 +112,7 @@ export function Dashboard({ location, roof }: DashboardProps) {
       location,
       roof_area_m2: parsedRoofArea,
       monthly_consumption_kwh: parsedMonthlyKwh,
+      ...(annotationUsed && { roof_utilization_factor: 0.85 }),
     });
   };
 
@@ -203,6 +210,80 @@ export function Dashboard({ location, roof }: DashboardProps) {
           </div>
         </form>
       </Card>
+
+      <LoadSizingPanel
+        availableRoofAreaM2={
+          Number.isFinite(parsedRoofArea) && parsedRoofArea > 0
+            ? parsedRoofArea
+            : null
+        }
+        onAcceptRecommendation={(suggestedRoofAreaM2) => {
+          setRoofAreaInput(String(Math.round(suggestedRoofAreaM2)));
+          setUserEditedArea(true);
+          const input = document.getElementById('dashboard-roof-area');
+          if (input) {
+            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            (input as HTMLInputElement).focus();
+          }
+        }}
+      />
+
+      {/* No-OSM case: obstacle annotation is the primary area source */}
+      {!roof && location && (
+        <Card>
+          <h3 className="font-display text-lg font-semibold">
+            No building outline detected — annotate your roof
+          </h3>
+          <p className="mt-1 text-sm text-ink-soft">
+            Upload a satellite image of your rooftop, draw the roof boundary, enter the
+            approximate area, and mark any obstacles. The computed net area will pre-fill
+            the roof area field above.
+          </p>
+          <div className="mt-4">
+            <ObstacleAnnotationPanel
+              mode="roof-and-obstacles"
+              onAreaComputed={(netArea) => {
+                setRoofAreaInput(String(Math.round(netArea)));
+                setUserEditedArea(true);
+                setAnnotationUsed(true);
+              }}
+            />
+          </div>
+        </Card>
+      )}
+
+      {/* OSM case: optional obstacle refinement */}
+      {roof && (
+        <Card>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between text-left"
+            onClick={() => setShowAnnotation((v) => !v)}
+          >
+            <span className="font-display text-sm font-semibold text-ink">
+              Refine with obstacle marking (optional)
+            </span>
+            <span className="text-xs text-ink-soft">{showAnnotation ? '▲ Hide' : '▼ Show'}</span>
+          </button>
+          {showAnnotation && (
+            <div className="mt-4">
+              <p className="mb-3 text-sm text-ink-soft">
+                Upload your own satellite photo and mark water tanks, AC condensers, dishes, or
+                parapet walls. The net area replaces the OSM area in the estimate.
+              </p>
+              <ObstacleAnnotationPanel
+                mode="obstacles-only"
+                knownAreaM2={roof.area_m2}
+                onAreaComputed={(netArea) => {
+                  setRoofAreaInput(String(Math.round(netArea)));
+                  setUserEditedArea(true);
+                  setAnnotationUsed(true);
+                }}
+              />
+            </div>
+          )}
+        </Card>
+      )}
 
       <div
         className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4"

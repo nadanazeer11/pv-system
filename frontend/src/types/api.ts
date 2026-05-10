@@ -9,6 +9,22 @@
  * step is reproducible in CI).
  */
 
+// ── /api/roof/annotate — backend/app/schemas/obstacle_annotation.py ────
+
+export type ObstacleAnnotationRequest = {
+  roof_polygon_px: Array<[number, number]>;
+  obstacle_polygons_px: Array<Array<[number, number]>>;
+  known_area_m2: number;
+};
+
+export type ObstacleAnnotationResult = {
+  roof_area_m2: number;
+  obstacle_area_m2: number;
+  net_area_m2: number;
+  obstacle_fraction: number;
+  obstacle_count: number;
+};
+
 // ── /api/sizing — backend/app/schemas/sizing.py ─────────────────────────
 
 export type SizingRequest = {
@@ -27,6 +43,50 @@ export type SizingResult = {
   panel_area_m2: number;
   roof_utilization_factor: number;
   panel_density_w_per_m2: number;
+};
+
+// ── /api/load-sizing — backend/app/schemas/load_sizing.py ───────────────
+
+export type ApplianceEntry = {
+  name: string;
+  watts: number;
+  hours_per_day: number;
+  quantity: number;
+};
+
+export type ApplianceLibraryEntry = {
+  name: string;
+  watts: number;
+  typical_hours_per_day: number;
+  category: string;
+};
+
+export type LoadSizingRequest = {
+  appliances: ApplianceEntry[];
+  available_roof_area_m2?: number;
+  coverage_fraction?: number;
+  panel_rated_watts?: number;
+  panel_area_m2?: number;
+  roof_utilization_factor?: number;
+};
+
+export type LoadSizingResult = {
+  daily_load_kwh: number;
+  monthly_load_kwh: number;
+  annual_load_kwh: number;
+  peak_load_kw: number;
+  recommended_system_kw: number;
+  recommended_panel_count: number;
+  required_roof_area_m2: number;
+  coverage_fraction: number;
+  peak_sun_hours: number;
+  performance_ratio: number;
+  panel_rated_watts: number;
+  panel_area_m2: number;
+  roof_utilization_factor: number;
+  roof_fits: boolean | null;
+  available_roof_area_m2: number | null;
+  roof_area_shortfall_m2: number | null;
 };
 
 // ── shared — backend/app/schemas/inputs.py ──────────────────────────────

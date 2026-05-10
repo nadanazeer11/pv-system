@@ -112,6 +112,10 @@ class Settings(BaseSettings):
     panel_rated_watts: float = 450.0
     panel_area_m2: float = 1.8
     roof_utilization_factor: float = 0.7
+    # Reduced utilization factor used when the user has explicitly marked
+    # obstacles via the annotation tool — obstacles are already subtracted,
+    # so only setbacks, walkways, and inter-row spacing remain (~15 %).
+    roof_utilization_factor_annotated: float = 0.85
     inverter_efficiency: float = 0.96
 
     # Egypt-specific defaults
@@ -119,6 +123,14 @@ class Settings(BaseSettings):
     default_azimuth_deg: float = 180.0
     egypt_grid_emission_kg_per_kwh: float = 0.46
     installed_cost_egp_per_kw: float = 35000.0
+    # Cairo annual-average peak sun hours at the latitude-tilt optimum,
+    # per PVGIS TMY (~5.5 kWh/m²/day). Used by the load-driven sizing
+    # service to translate a daily kWh load into a DC nameplate kW.
+    egypt_peak_sun_hours: float = 5.5
+    # Bundled DC-to-AC derate for residential rooftop PV: inverter loss,
+    # soiling, mismatch, wiring, temperature. IEA-PVPS Task 13 reports
+    # 0.75–0.82 for hot-arid climates; 0.78 is the central value.
+    system_performance_ratio: float = 0.78
 
     # CO₂ user-friendly equivalences (Day 18) ─────────────────────────
     # The thesis dashboard reports lifetime CO₂ avoided in raw kg, but a

@@ -278,6 +278,11 @@ describe('Dashboard', () => {
 
   it('runs the five-call chain and renders all four metrics on success', async () => {
     const { fn, calls } = mockFetchSequence([
+      // The LoadSizingPanel auto-fetches the appliance library on mount.
+      // It is independent of the estimate chain — we mock it so the
+      // unmatched-URL guard does not fire, then filter library calls out
+      // of the chain-order assertions below.
+      { url: /\/api\/load-sizing\/library/, body: [] },
       { url: /\/api\/sizing/, body: SIZING_RESULT },
       { url: /\/api\/energy\/pvlib/, body: ENERGY_RESULT },
       { url: /\/api\/energy\/manual/, body: ENERGY_MANUAL_RESULT },
@@ -335,22 +340,27 @@ describe('Dashboard', () => {
       screen.getByText(/annual savings ≈ 5,268 egp/i),
     ).toBeInTheDocument();
 
-    // Day-15: five calls total (sizing, then pvlib + manual in parallel,
-    // then tariff, then monte-carlo). pvlib and manual may arrive in
-    // either order on the wire, but both must appear before tariff.
-    expect(fn).toHaveBeenCalledTimes(5);
-    expect(calls[0].url).toMatch(/\/api\/sizing$/);
-    const energyUrls = [calls[1].url, calls[2].url].sort();
+    // Day-15: five calls in the estimate chain (sizing, then pvlib +
+    // manual in parallel, then tariff, then monte-carlo). pvlib and
+    // manual may arrive in either order on the wire, but both must
+    // appear before tariff. The LoadSizingPanel's appliance-library
+    // fetch is independent and is filtered out before chain-order
+    // assertions.
+    const chain = calls.filter((c) => !/\/api\/load-sizing\/library/.test(c.url));
+    expect(chain.length).toBe(5);
+    expect(fn).toHaveBeenCalledTimes(5 + (calls.length - chain.length));
+    expect(chain[0].url).toMatch(/\/api\/sizing$/);
+    const energyUrls = [chain[1].url, chain[2].url].sort();
     expect(energyUrls[0]).toMatch(/\/api\/energy\/manual$/);
     expect(energyUrls[1]).toMatch(/\/api\/energy\/pvlib$/);
-    expect(calls[3].url).toMatch(/\/api\/tariff\/savings$/);
-    expect(calls[4].url).toMatch(/\/api\/monte-carlo\/run$/);
+    expect(chain[3].url).toMatch(/\/api\/tariff\/savings$/);
+    expect(chain[4].url).toMatch(/\/api\/monte-carlo\/run$/);
 
     // Both energy calls inherited system_kw from sizing.
-    expect((calls[1].body as { system_kw: number }).system_kw).toBe(SIZING_RESULT.system_kw);
-    expect((calls[2].body as { system_kw: number }).system_kw).toBe(SIZING_RESULT.system_kw);
+    expect((chain[1].body as { system_kw: number }).system_kw).toBe(SIZING_RESULT.system_kw);
+    expect((chain[2].body as { system_kw: number }).system_kw).toBe(SIZING_RESULT.system_kw);
 
-    const tariffBody = calls[3].body as {
+    const tariffBody = chain[3].body as {
       monthly_consumption_kwh: number[];
       monthly_generation_kwh: number[];
     };
@@ -359,7 +369,7 @@ describe('Dashboard', () => {
     // Tariff still uses pvlib's monthly profile — pvlib remains canonical
     // for downstream tariff / Monte Carlo on Day 15.
     expect(tariffBody.monthly_generation_kwh).toEqual(ENERGY_RESULT.monthly_kwh);
-    const mcBody = calls[4].body as {
+    const mcBody = chain[4].body as {
       system_kw: number;
       annual_kwh: number;
       tariff_egp_per_kwh: number;
@@ -376,6 +386,7 @@ describe('Dashboard', () => {
     // include the manual mock so the test does not depend on which of
     // the two parallel calls happens to reject first.
     mockFetchSequence([
+      { url: /\/api\/load-sizing\/library/, body: [] },
       { url: /\/api\/sizing/, body: SIZING_RESULT },
       {
         url: /\/api\/energy\/pvlib/,
