@@ -1,0 +1,434 @@
+% =====================================================================
+%  Literature Review chapter -- AI-Assisted Rooftop Solar Potential
+%  Estimation and Financial Analysis System.
+%
+%  Like methodology.tex, this file is a FRAGMENT, intended to be
+%  \input{} from a master thesis file (e.g. bachelor.tex) that
+%  provides the document class, preamble, \begin{document},
+%  \bibliography{references}, etc.
+%
+%  Required packages (already listed in methodology.tex preamble):
+%      booktabs, tabularx, hyperref, natbib (round, authoryear)
+% =====================================================================
+
+\providecommand{\degC}{\,^{\circ}\mathrm{C}}
+\providecommand{\COtwo}{\mathrm{CO_{2}}}
+
+% =====================================================================
+\chapter{Literature Review}
+\label{ch:litreview}
+% Replace \chapter with \section if your thesis class is `article`.
+% =====================================================================
+
+\noindent\textbf{Status:} Chapter~2 deliverable --- academic, LaTeX-ready.\\
+\textbf{Pairs with:} \texttt{methodology.tex} (Chapter~3),
+\texttt{references.bib}. All citations below resolve against
+\texttt{references.bib}.
+
+\bigskip
+
+% =====================================================================
+\section{Introduction}
+\label{sec:litreview-intro}
+% =====================================================================
+
+This chapter situates the present work within the existing literature
+on residential, grid-tied rooftop photovoltaic (PV) systems, with a
+geographic emphasis on Egypt. The aim is twofold: first, to summarise
+the methodological state of the art across the four technical pillars
+that the thesis combines --- PV energy modelling, rooftop area
+estimation, electricity-tariff-aware financial modelling, and
+uncertainty quantification --- and second, to surface the specific
+gaps that the methodology of Chapter~3 addresses.
+
+Three deliberate scope restrictions apply. The chapter considers
+\emph{residential} systems (typically $1$--$15$\,kWp) rather than
+utility-scale PV plants, whose financing, siting, and grid-coupling
+problems differ qualitatively. It considers \emph{grid-tied} systems
+(self-consumption with surplus export) rather than off-grid or hybrid
+diesel/battery systems, which dominate the rural-electrification
+literature. And it considers conventional roof-mounted modules rather
+than building-integrated PV (BIPV) or bifacial trackers. With those
+boundaries set, \S\ref{sec:lit-pv}--\S\ref{sec:lit-egypt} review the
+literature thematically; \S\ref{sec:lit-gap} synthesises the four
+gaps that motivate Chapter~3.
+
+% =====================================================================
+\section{Photovoltaic energy modelling and simulation}
+\label{sec:lit-pv}
+% =====================================================================
+
+\subsection{From first-principles to library toolchains}
+\label{sec:lit-pv-tools}
+
+The conversion of broadband solar irradiance into AC electrical
+output at the meter follows a well-understood physical chain:
+horizontal irradiance is decomposed into beam and diffuse components
+\citep{liu1960}, transposed onto the tilted plane of the array, used
+together with the solar position \citep{nrel-spa} to determine
+plane-of-array (POA) irradiance, combined with module temperature and
+temperature coefficients to yield DC output, and finally passed
+through inverter and balance-of-system efficiencies to produce AC
+energy. The classic textbook treatment is given by
+\citet{duffie}; \citet{parida2011} survey the underlying cell-level
+technologies and \citet{green2024} provide the most recent
+record-efficiency tables.
+
+Several open and semi-open simulation toolchains implement this
+pipeline. The U.S.\ Department of Energy's PVWatts \citep{pvwatts2014}
+exposes a deliberately simplified model designed for quick economic
+screening. The full System Advisor Model (SAM) \citep{nrel-sam}
+exposes a richer detailed-loss decomposition and is the de-facto
+reference for utility-scale studies in North America. The
+\texttt{pvlib} Python package \citep{pvlib} re-implements the
+underlying algorithms as a library suitable for embedding in larger
+analytical pipelines, which is the approach this thesis takes. The
+European Commission's PVGIS \citep{pvgis} bundles a TMY climate
+database with a similar conversion model and exposes both as a public
+REST endpoint. \citet{ieapvps-task7} place these tools in the wider
+context of PV deployment trends.
+
+\subsection{Cross-validation and dual-model precedent}
+\label{sec:lit-pv-cross}
+
+Although the underlying physics is shared, every implementation makes
+different choices about loss decomposition, transposition algorithm,
+spectral correction, and low-irradiance behaviour
+\citep{mavromatakis2010}, and these can produce annual-yield
+disagreements of several percent on the same input data.
+\citet{freeman2014} validate SAM against measured plant data and
+report site-dependent biases; \citet{gilman2018} document the SAM
+photovoltaic model in detail and quantify model-induced uncertainty.
+\citet{polo2020} benchmark several simulation chains against measured
+output across multiple sites and conclude that no single model
+dominates --- agreement \emph{between} models is itself useful
+evidence of robustness. Despite this, residential-scale PV studies
+overwhelmingly report a single-model output as the headline yield
+figure. Cross-validating two independent implementations against the
+same input data is uncommon outside utility-scale validation reports
+and represents the methodological pattern that
+\S\ref{sec:pv} of this thesis adopts.
+
+% =====================================================================
+\section{Rooftop area estimation from remote data}
+\label{sec:lit-roof}
+% =====================================================================
+
+A PV yield calculation is only as accurate as the roof area on which
+the system is sized. The literature on automatically estimating that
+area can be organised by data source.
+
+\subsection{Manual entry, GIS, and cadastral data}
+\label{sec:lit-roof-manual}
+
+The default in commercial homeowner-facing calculators (PVWatts,
+EnergySage, vendor sizing tools) is to ask the user to enter their
+roof area or, equivalently, the number of panels they think will
+fit. This is convenient but unreliable: homeowners systematically
+mis-estimate roof dimensions, and the resulting yield projections
+inherit the error linearly. Cadastral and GIS approaches replace
+manual entry with authoritative geometry. \citet{wiginton2010} use
+LiDAR returns and municipal building polygons to estimate Ontario's
+aggregate rooftop solar potential; \citet{brito2012} apply LiDAR-based
+extraction in a Lisbon suburb; \citet{mainzer2014} build a
+high-resolution GIS pipeline for German rooftops; and
+\citet{lukac2014} rasterise LiDAR returns to derive per-roof
+suitability scores. These approaches work well where high-quality
+LiDAR and cadastral records are publicly available --- a condition
+that is not met in Egypt or most of North Africa, where municipal
+geometry is sparse or undigitised.
+
+\subsection{Satellite imagery: classical CV and deep learning}
+\label{sec:lit-roof-cv}
+
+Where authoritative geometry is unavailable, satellite or aerial
+imagery becomes the data source. Classical computer-vision pipelines
+combine edge detection, region growing, and shape regularisation;
+\citet{wang2018} extract building footprints from very-high-resolution
+imagery using a deep network followed by a guided-filter
+post-processing stage, illustrating how classical regularisation
+remains useful even alongside learned segmentation. Pure
+deep-learning approaches now dominate the segmentation literature.
+\citet{ronneberger2015} introduced the U-Net architecture that
+underpins most modern building-segmentation models;
+\citet{assouline2017} apply machine learning to large-scale rooftop
+solar potential estimation in Switzerland; \citet{yu2018deepsolar}
+build the influential \emph{DeepSolar} database covering the
+contiguous United States; and \citet{lee2019deeproof} extend this to
+solar potential rather than mere footprint extraction.
+
+The recurring caveat is training data. \citet{vargas-munoz2021}
+document the substantial label noise and geographic bias that
+characterise OpenStreetMap (OSM) and other crowdsourced annotations
+when they are used as training targets. North African rooftops are
+under-represented in the corpora behind DeepSolar and DeepRoof, and
+no comparable annotated dataset exists for Egyptian residential
+rooftops. A purely deep-learning approach therefore inherits a
+training-distribution mismatch that is not straightforward to remedy
+within the scope of a residential feasibility tool.
+
+\subsection{OpenStreetMap-based footprints}
+\label{sec:lit-roof-osm}
+
+A pragmatic alternative is to consume OSM building footprints
+directly via the Overpass API \citep{osm-overpass}. \citet{osm-quality}
+benchmark OSM geometry against authoritative survey data and find
+quality varies but is workable in built-up areas; \citet{vargas-munoz2021}
+discuss the same tradeoff in the machine-learning context. The OSM
+route avoids both the cadastral coverage gap and the training-data
+mismatch, but raw OSM polygons are noisy: vertex counts vary,
+right-angle constraints are violated, and small jitter accumulates in
+area calculations. Combining OSM footprints with classical
+computer-vision regularisation against satellite imagery --- using
+imagery to refine geometry rather than to learn it from scratch --- is
+notably underexplored in the rooftop-PV literature.
+
+% =====================================================================
+\section{Electricity tariffs and PV economic modelling}
+\label{sec:lit-tariff}
+% =====================================================================
+
+\subsection{Tariff structures: flat, time-of-use, and tiered}
+\label{sec:lit-tariff-structures}
+
+Residential electricity tariffs fall into three broad families
+\citep{bhattacharyya2019}. \emph{Flat} tariffs charge a single
+$\mathrm{price/kWh}$ regardless of consumption or time;
+\emph{time-of-use} (ToU) tariffs vary the price across diurnal blocks;
+and \emph{increasing-block} or \emph{tiered} tariffs apply a
+piecewise-increasing schedule of marginal prices to consumption
+within consumption bands. \citet{borenstein2012} analyses the
+distributional consequences of nonlinear (tiered) pricing and shows
+that a kWh saved in the highest block is worth several times as much
+as a kWh saved in the lowest block. \citet{darghouth2011} demonstrate
+in the Californian context that the bill savings produced by
+distributed PV depend strongly on the tariff schedule: under a
+flat tariff PV is essentially indifferent to load shape, but under a
+tiered or ToU tariff the marginal value of the avoided kWh depends on
+which block it would otherwise have fallen in.
+
+The implication for PV calculators is direct. Tools such as PVWatts
+\citep{pvwatts2014} and the simplified models surveyed by
+\citet{audenaert2010} compute bill savings against a single average
+tariff, which is correct only for flat-rate consumers. Where the
+underlying tariff is tiered, this approach systematically
+under-estimates savings for high-consumption households (whose
+displaced kWh come from expensive top blocks) and over-estimates them
+for low-consumption households (whose displaced kWh come from cheaper
+blocks).
+
+\subsection{Financial metrics: payback, NPV, and LCOE}
+\label{sec:lit-tariff-metrics}
+
+Once an annual bill saving is computed, several headline financial
+metrics summarise the investment. Simple payback period is the
+ratio of capital expenditure to first-year saving and is favoured for
+its homeowner-legibility. Discounted payback corrects for the time
+value of money. Net present value (NPV) sums the discounted
+twenty-five-year cash-flow stream. Levelised cost of electricity
+(LCOE) divides total lifetime cost by total lifetime generation;
+\citet{branker2011} review LCOE methodology specifically for solar PV
+and \citet{talavera2010} provide a comprehensive sensitivity analysis
+of the internal rate of return for grid-connected systems.
+\citet{irena2023} report cost-trend evidence that residential LCOE has
+fallen below grid retail tariffs across most of the world.
+
+The economics also depend on the export rule: \emph{net metering}
+credits exported kWh at the retail tariff (treating the meter as
+running backwards), \emph{net billing} or self-consumption-first
+schemes credit exports at a lower wholesale or feed-in rate, and
+\emph{feed-in tariffs (FIT)} pay an explicit per-kWh price for all
+generation. These distinctions interact non-trivially with tiered
+retail tariffs, since the value of a self-consumed kWh is the
+\emph{marginal} retail price avoided, which under a tiered schedule
+is itself a function of household consumption.
+
+\subsection{Egypt-specific context: the EgyptERA progressive tariff}
+\label{sec:lit-tariff-egypt}
+
+Egypt's residential electricity sector operates under Electricity Law
+87/2015 \citep{egypt-electricity-act}, which established the
+regulator (EgyptERA) and provided the framework for the present
+seven-tier increasing-block residential schedule
+\citep{egyptera_tariff}. Marginal prices in the highest tier are
+several multiples of those in the lowest tier, and the schedule has
+been revised upwards repeatedly since the post-2014 reform path. Grid
+emissions are reported by EEHC \citep{eehc_emissions} and have
+declined as natural gas has displaced fuel oil in generation.
+
+The Egyptian feasibility literature has not, to date, modelled this
+tariff structure faithfully. \citet{mahmoud2023} present a
+pre-feasibility analysis of residential rooftop PV in Egypt under
+average-rate assumptions; \citet{esmail-negm-2021} carry out a
+techno-economic analysis of grid-tied PV using a single representative
+tariff figure; \citet{mohamed2020} treat a stand-alone hybrid
+configuration (off-scope for this thesis but illustrative of the
+methodological gap). In each case a flat-rate assumption is either
+made explicitly or implied by the use of an average $\mathrm{EGP/kWh}$
+input. The marginal-block sensitivity that
+\citet{borenstein2012} and \citet{darghouth2011} identify as the
+dominant determinant of household-PV economics is therefore absent
+from the published Egyptian analyses.
+
+% =====================================================================
+\section{Uncertainty quantification in PV finance}
+\label{sec:lit-uncertainty}
+% =====================================================================
+
+\subsection{Why point estimates mislead homeowners}
+\label{sec:lit-uncertainty-point}
+
+A residential PV business case depends on at least seven uncertain
+parameters: module degradation rate \citep{jordan2013}, inverter
+service life \citep{ieapvps2021}, capital expenditure (subject to
+import-cost and exchange-rate risk in the Egyptian context),
+ongoing operations and maintenance, soiling losses
+\citep{elsayed2017}, retail tariff escalation, and weather-driven
+year-to-year yield variability. A point-estimate payback figure
+collapses all of these into a single number. \citet{spertino2014}
+analyse long-term rooftop PV economics across the two main European
+markets and show that headline payback is highly sensitive to the
+chosen central values for these parameters; small changes in the
+discount rate or tariff-escalation assumption can move the payback by
+years.
+
+\subsection{Sensitivity analysis and Monte Carlo precedent}
+\label{sec:lit-uncertainty-mc}
+
+Two complementary techniques address this problem. One-at-a-time
+(OAT) sensitivity analysis, summarised by \citet{saltelli2008},
+perturbs each input across a plausible range with all others held at
+their central value, producing a tornado chart that ranks parameters
+by their leverage on the output. Monte Carlo (MC) simulation samples
+all uncertain parameters jointly from probability distributions and
+reports the resulting output distribution as percentile bands.
+\citet{drury2012} apply MC sampling within the U.S.\ SunShot Vision
+Study to bound rooftop-PV market projections; \citet{lacirignola2017}
+combine sensitivity and MC analyses for emerging PV technologies
+within a life-cycle assessment framework; \citet{cucchiella2012}
+apply MC to building-integrated PV economics. The IEA-PVPS Task 12
+report \citep{ieapvps2020} provides standardised guidelines for
+LCA-style uncertainty propagation; the IPCC \citep{ipcc-ar6-wg3}
+similarly motivates probabilistic reporting of mitigation outcomes,
+and the EPA \citep{epa-equivalencies} and EEA
+\citep{eea-passenger-cars} provide the equivalence factors used to
+translate avoided $\COtwo$ into homeowner-legible units. Yet most of
+this MC literature targets either utility-scale finance or LCA-style
+environmental indicators rather than residential payback
+distributions reported back to a homeowner. The typical homeowner
+deliverable in published Egyptian and MENA studies remains a single
+number.
+
+% =====================================================================
+\section{Egypt-specific residential PV studies}
+\label{sec:lit-egypt}
+% =====================================================================
+
+The technical solar resource in Egypt is exceptional: the
+NREA Solar Atlas \citep{nrea-atlas} and Solargis assessments
+\citep{solargis-egypt} report annual GHI of $2{,}000$--$2{,}600$\,
+kWh\,m$^{-2}$ across most of the country, with Cairo and Upper Egypt
+in the upper end of that range. \citet{khalil2018} compare statistical
+and inclined-surface irradiance models against Egyptian measurements;
+\citet{elsayed2017} characterise soiling losses under Cairo's
+atmospheric conditions and report that uncleaned modules can lose
+several percent per month during dust season --- a loss term that
+materially shifts payback in the desert climate.
+
+The residential techno-economic literature for Egypt remains sparse.
+\citet{mahmoud2023} and \citet{esmail-negm-2021} are the two most
+directly relevant studies. Both establish that grid-tied rooftop PV
+is economically attractive in Egypt against current tariffs; both
+adopt a deterministic single-system framing; and both treat the
+tariff as flat. Neither incorporates automated roof geometry, tiered
+billing, or probabilistic uncertainty bounds. Wider regional context
+is provided by \citet{mohamed2020} for stand-alone systems and by
+the IEA's renewables forecasts \citep{iea-renewables-2023} for
+aggregate market trajectories.
+
+Two technology areas adjacent to this thesis but not central to it
+deserve mention for completeness. Maximum-power-point tracking and
+inverter design have a mature literature: \citet{esram2007} survey
+MPPT algorithms and \citet{kjaer2005} review single-phase
+grid-connected inverter topologies. The present work treats inverter
+behaviour as a fixed efficiency curve and inherits MPPT performance
+from the manufacturer specification, so these references serve only
+to bound the abstraction.
+
+% =====================================================================
+\section{Synthesis: research gap and contributions}
+\label{sec:lit-gap}
+% =====================================================================
+
+The four preceding sections each end on the same note: a methodological
+choice that is well-supported in the wider PV literature but absent
+from the published Egyptian residential analyses. Taken together they
+define the gap that this thesis addresses. Table~\ref{tab:gap-map}
+summarises the mapping from each gap to the corresponding
+methodological contribution in Chapter~3.
+
+\begin{table}[h]
+  \centering
+  \small
+  \begin{tabularx}{\textwidth}{@{} l X X @{}}
+    \toprule
+    \textbf{\#} & \textbf{Gap identified in the literature}
+                & \textbf{This thesis (Chapter~3)} \\
+    \midrule
+    1 & Residential PV studies report a single-model annual yield;
+        cross-validation between independent implementations is rare
+        outside utility-scale validation reports
+        \citep{freeman2014, polo2020}.
+      & Dual independent energy models (\texttt{pvlib} library
+        chain~+ first-principles physics chain) producing two
+        yield estimates whose agreement is itself reported as
+        evidence of robustness
+        --- \S\ref{sec:pv}. \\
+    \addlinespace
+    2 & Roof area is either entered manually (unreliable) or
+        extracted by deep-learning models trained on corpora that
+        under-represent North African rooftops
+        \citep{vargas-munoz2021, yu2018deepsolar}; LiDAR-cadastral
+        approaches \citep{wiginton2010, brito2012} require data
+        unavailable in Egypt.
+      & OSM building footprints retrieved through Overpass and
+        regularised with classical computer-vision techniques against
+        satellite imagery, avoiding both manual entry and
+        training-distribution mismatch
+        --- \S\ref{sec:roof}. \\
+    \addlinespace
+    3 & Egyptian residential PV studies
+        \citep{mahmoud2023, esmail-negm-2021} treat the EgyptERA
+        seven-tier progressive tariff as a single average rate, even
+        though the marginal-block effect is the dominant driver of
+        household-PV economics under nonlinear pricing
+        \citep{borenstein2012, darghouth2011}.
+      & Self-consumption-first netting against the actual EgyptERA
+        block schedule \citep{egyptera_tariff}, with system size
+        optimised over discrete options to maximise NPV
+        --- \S\ref{sec:tariff}. \\
+    \addlinespace
+    4 & Residential PV economics are reported as point-estimate
+        payback figures, even though seven or more parameters are
+        independently uncertain \citep{jordan2013, ieapvps2021,
+        spertino2014}; published Monte Carlo work targets utility
+        finance or LCA, not homeowner-facing decision support
+        \citep{drury2012, lacirignola2017}.
+      & Monte Carlo simulation over seven stochastic inputs producing
+        percentile fan-charts on payback and NPV, alongside an OAT
+        sensitivity tornado for parameter attribution
+        --- \S\ref{sec:montecarlo}. \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Mapping from gaps identified in the literature to the
+  contributions of Chapter~3.}
+  \label{tab:gap-map}
+\end{table}
+
+The methodology presented in Chapter~3 is structured around these
+four contributions and addresses each of the gaps in turn. The
+validation chapter that follows it cross-checks the resulting system
+against the same Egyptian studies surveyed above
+\citep{mahmoud2023, esmail-negm-2021} as well as against published
+LCOE and payback ranges \citep{branker2011, irena2023}, closing the
+loop between the literature and the implemented system.
